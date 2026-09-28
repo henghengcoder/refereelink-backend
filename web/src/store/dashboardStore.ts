@@ -29,6 +29,11 @@ interface DashboardState {
   setTeamCalibration: (state: TeamCalibrationState) => void;
 }
 
+const EMPTY_PLAYERS: FrameState['players'] = [];
+
+export const selectPitchPlayers = (state: DashboardState): FrameState['players'] =>
+  state.frameState?.players ?? EMPTY_PLAYERS;
+
 export const useDashboardStore = create<DashboardState>((set) => ({
   frameState: null,
   metrics: null,
