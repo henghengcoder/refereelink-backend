@@ -197,7 +197,16 @@ export interface TeamCalibrationState {
   processing_error: string | null;
 }
 
-export type WSMessage = FrameState | MetricsSnapshot | TeamCalibrationState;
+export interface RefereeAlertBroadcast {
+  type: 'referee_alert';
+  event: GameEvent;
+}
+
+export type WSMessage =
+  | FrameState
+  | MetricsSnapshot
+  | TeamCalibrationState
+  | RefereeAlertBroadcast;
 
 export interface PipelineConfig {
   mode: string;

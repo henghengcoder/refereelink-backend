@@ -5,6 +5,7 @@ import type {
   FrameState,
   MetricsSnapshot,
   TeamCalibrationState,
+  RefereeAlertBroadcast,
 } from '../types/messages';
 
 const WS_PROTOCOL = window.location.protocol === 'https:' ? 'wss' : 'ws';
@@ -84,6 +85,10 @@ export function useWebSocket() {
           setSourceStatus((msg as MetricsSnapshot).source_status);
         } else if (msg.type === 'team_calibration') {
           setTeamCalibration(msg as TeamCalibrationState);
+        } else if (msg.type === 'referee_alert') {
+          // Manual/detector alerts mirrored by the backend as a GameEvent
+          // (app/referee_alerts/service.py DASHBOARD_BROADCAST_TYPE).
+          addEvent((msg as RefereeAlertBroadcast).event);
         }
       } catch {
         // ignore malformed messages

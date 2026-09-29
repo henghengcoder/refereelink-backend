@@ -1,8 +1,56 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useDashboardStore } from '../store/dashboardStore';
+import { createRefereeAlert } from '../api/refereeAlerts';
+import type { RefereeAlertType } from '../types/refereeAlerts';
+
+interface Feedback {
+  kind: 'success' | 'error';
+  message: string;
+}
+
+const ALERT_BUTTONS: Array<{ type: RefereeAlertType; label: string; ariaLabel: string }> = [
+  {
+    type: 'foul_candidate',
+    label: '犯规提醒',
+    ariaLabel: '手动发送犯规候选提醒（测试入口）',
+  },
+  {
+    type: 'offside_candidate',
+    label: '越位提醒',
+    ariaLabel: '手动发送越位候选提醒（测试入口）',
+  },
+];
 
 const EventAlerts: React.FC = () => {
   const events = useDashboardStore((s) => s.events);
+  const [pendingType, setPendingType] = useState<RefereeAlertType | null>(null);
+  const [feedback, setFeedback] = useState<Feedback | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const sendAlert = async (type: RefereeAlertType) => {
+    if (pendingType) return;
+    setPendingType(type);
+    setFeedback(null);
+    const label = ALERT_BUTTONS.find((b) => b.type === type)?.label ?? type;
+    try {
+      const alert = await createRefereeAlert(type);
+      if (!mountedRef.current) return;
+      setFeedback({ kind: 'success', message: `已发送${label} (${alert.event_id})` });
+    } catch (e) {
+      if (!mountedRef.current) return;
+      const detail = e instanceof Error ? e.message : String(e);
+      setFeedback({ kind: 'error', message: `${label}发送失败: ${detail}` });
+    } finally {
+      if (mountedRef.current) setPendingType(null);
+    }
+  };
 
   return (
     <div className="panel events-panel">
@@ -10,6 +58,26 @@ const EventAlerts: React.FC = () => {
         <span>EVENTS &amp; ALERTS</span>
         <span className="event-count">{events.length}</span>
       </div>
+      <div className="alerts-actions">
+        {ALERT_BUTTONS.map((b) => (
+          <button
+            key={b.type}
+            type="button"
+            className="btn btn-action alert-btn"
+            aria-label={b.ariaLabel}
+            aria-busy={pendingType === b.type}
+            disabled={pendingType !== null}
+            onClick={() => void sendAlert(b.type)}
+          >
+            {pendingType === b.type ? '...' : b.label}
+          </button>
+        ))}
+      </div>
+      {feedback && (
+        <div className={`alerts-feedback ${feedback.kind}`} role="status" aria-live="polite">
+          {feedback.message}
+        </div>
+      )}
       <div className="events-list">
         {events.length === 0 && (
           <div className="events-empty">No events detected</div>

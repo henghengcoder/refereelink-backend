@@ -339,6 +339,33 @@ body {
   color: var(--text-secondary);
 }
 
+/* Manual referee alert buttons */
+.alerts-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 6px 8px 0;
+}
+
+.alert-btn {
+  padding: 3px 10px;
+  font-size: 9px;
+}
+
+.alerts-feedback {
+  padding: 3px 8px 1px;
+  font-size: 9px;
+}
+
+.alerts-feedback.success {
+  color: var(--accent-green);
+}
+
+.alerts-feedback.error {
+  color: var(--accent-red);
+}
+
 /* Control */
 .control-body {
   display: flex;

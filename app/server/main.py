@@ -17,6 +17,8 @@ from fastapi.responses import StreamingResponse
 from app.pipeline.buffer import PipelineMode
 from app.pipeline.engine import InferencePipeline
 from app.pipeline.source import create_video_source
+from app.referee_alerts.api import router as referee_alert_router
+from app.referee_alerts.service import RefereeAlertService
 from app.field_ingest.api import create_router as create_field_ingest_router
 from app.field_ingest.service import FieldIngestService
 from app.constants.paths import (
@@ -49,6 +51,7 @@ logger = logging.getLogger(__name__)
 
 _store = StateStore()
 _publisher = WebSocketPublisher(_store)
+_referee_alerts = RefereeAlertService(_store, _publisher)
 _pipeline: Optional[InferencePipeline] = None
 _pipeline_lock = threading.Lock()
 _device = "cpu"
@@ -272,6 +275,7 @@ app.state.create_pipeline = create_pipeline
 app.state.attach_and_start_pipeline = attach_and_start_pipeline
 app.state.stop_and_clear_pipeline = stop_and_clear_pipeline
 app.state.field_ingest = FieldIngestService()
+app.state.referee_alerts = _referee_alerts
 
 app.include_router(health_router)
 app.include_router(status_router)
@@ -279,6 +283,7 @@ app.include_router(events_router)
 app.include_router(multiview_router)
 app.include_router(pipeline_router)
 app.include_router(team_calibration_router)
+app.include_router(referee_alert_router)
 app.include_router(ws_router)
 app.include_router(create_field_ingest_router(app.state.field_ingest))
 
