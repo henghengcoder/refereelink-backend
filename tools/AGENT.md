@@ -7,7 +7,7 @@
 - `calibrate_camera.py`：从棋盘格图片生成相机 `.npz`。
 - `render_diagnostic_video.py`：用共享推理管线生成诊断视频。
 - `benchmark_phase1.py`：真实 YOLO/球场模型配置对比。
-- `benchmark_phase2.py`：不依赖模型权重的实体语义/足球调度开销。
+- `benchmark_phase2.py`：不依赖模型权重的实体语义调度开销。
 - `benchmark_phase4.py`：共享 JPEG 编码缓存开销。
 - `benchmark_tracking_stability.py`、`benchmark_state.py`：轨迹稳定性和状态数据路径 benchmark。
 benchmark 结果是条件化证据，不是普遍性能承诺；缺权重的 case 应保留 missing/error 状态，不能静默换模型。

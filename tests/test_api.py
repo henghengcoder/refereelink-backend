@@ -36,8 +36,11 @@ def test_get_config(client):
     assert "mode" in data
     assert "video_source" in data
     assert "device" in data
-    assert "enable_ball" in data
-    assert "ball_detection_interval" in data
+    assert "player_model_path" in data
+    assert "pitch_model_path" in data
+    assert "enable_ball" not in data
+    assert "ball_model_path" not in data
+    assert "ball_detection_interval" not in data
     assert data["inference_backend"] == "auto"
 
 

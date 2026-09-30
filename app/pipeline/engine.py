@@ -12,7 +12,6 @@ import numpy as np
 import torch
 
 from app.constants.paths import (
-    BALL_DETECTION_MODEL_PATH,
     CAMERA_CALIBRATION_PATH,
     PITCH_DETECTION_MODEL_PATH,
     PLAYER_DETECTION_MODEL_PATH,
@@ -27,7 +26,6 @@ from app.pipeline.recorder import VideoRecorder
 from app.pipeline.source import VideoSource
 from app.state.models import (
     BallState,
-    BallStatus,
     FrameState,
     HomographyStatus,
     MetricsSnapshot,
@@ -38,7 +36,6 @@ from app.state.models import (
 )
 from app.state.store import StateStore
 from app.vision.core import VisionCore
-from app.vision.ball import BallProcessor
 from app.vision.display import TrackDisplaySmoother
 
 logger = logging.getLogger(__name__)
@@ -231,10 +228,6 @@ class InferencePipeline:
         calibration_alpha: float = 0.0,
         pitch_detection_interval: int = 5,
         imgsz: int = 640,
-        ball_model_path: str = BALL_DETECTION_MODEL_PATH,
-        enable_ball: bool = True,
-        ball_detection_interval: int = 2,
-        ball_max_prediction_frames: int = 8,
         role_model_path: str = ROLE_DETECTION_MODEL_PATH,
         team_classifier_path: Optional[str] = TEAM_CLASSIFIER_PATH,
         team_calibration_path: Optional[str] = None,
@@ -271,10 +264,6 @@ class InferencePipeline:
         self._calibration_alpha = calibration_alpha
         self._pitch_detection_interval = pitch_detection_interval
         self._imgsz = imgsz
-        self._ball_model_path = ball_model_path
-        self._enable_ball = enable_ball
-        self._ball_detection_interval = ball_detection_interval
-        self._ball_max_prediction_frames = ball_max_prediction_frames
         self._role_model_path = role_model_path
         self._team_classifier_path = team_classifier_path
         self._team_calibration_path = team_calibration_path
@@ -319,7 +308,6 @@ class InferencePipeline:
             self._use_fp16 = False
 
         self._vision_core: Optional[VisionCore] = None
-        self._ball_processor: Optional[BallProcessor] = None
         self._semantic_manager = semantic_manager
         self._team_assignment_service = team_assignment_service
         self._semantic_interval = max(
@@ -338,8 +326,6 @@ class InferencePipeline:
         self._foul_detector = foul_detector
         self._foul_adapter = FoulEventAdapter(confidence_threshold=foul_confidence_threshold)
         self.foul_inference_count = 0
-        self._previous_ball_field_xy: Optional[np.ndarray] = None
-        self._previous_ball_timestamp_s: Optional[float] = None
 
     def start(self) -> None:
         if self._running:
@@ -466,16 +452,6 @@ class InferencePipeline:
                 role_classifier=role_classifier,
                 team_classifier=team_classifier,
             )
-        if self._enable_ball:
-            self._ball_processor = BallProcessor(
-                model_path=self._ball_model_path,
-                device=self._device,
-                imgsz=self._imgsz,
-                detection_interval=self._ball_detection_interval,
-                max_prediction_frames=self._ball_max_prediction_frames,
-                inference_backend=self._inference_backend,
-            )
-            self._ball_processor.load_model()
         if self._enable_foul_detection and self._foul_detector is None:
             try:
                 from app.foul_detection.detector import FoulDetector
@@ -557,12 +533,9 @@ class InferencePipeline:
         detections = vision_frame.tracked_detections
         projection = vision_frame.projection
 
-        ball_state = self._process_ball(
-            frame=vision_frame.undistorted_frame,
-            frame_index=self._source.frame_count,
-            projection=projection,
-            timestamp_s=capture_timestamp_ms / 1000.0,
-        )
+        # Camera vision no longer estimates the ball. Coordinates stay empty
+        # until a later sensor writes field_x, field_y, and status.
+        ball_state = BallState()
         foul_event = self._process_foul(
             frame=vision_frame.undistorted_frame,
             frame_id=self._source.frame_count,
@@ -678,26 +651,6 @@ class InferencePipeline:
                 + (" PREDICTED" if display.track_status == "predicted" else ""),
                 color=color,
             )
-
-        if ball_state.image_x is not None and ball_state.image_y is not None:
-            image_point = np.asarray([ball_state.image_x, ball_state.image_y], dtype=np.float64)
-            frame_height, frame_width = annotated_frame.shape[:2]
-            if np.isfinite(image_point).all():
-                ball_center = tuple(np.rint(image_point).astype(np.int64).tolist())
-                if 0 <= ball_center[0] < frame_width and 0 <= ball_center[1] < frame_height:
-                    ball_color = (
-                        (0, 215, 255) if ball_state.status == BallStatus.FRESH else (180, 180, 180)
-                    )
-                    cv2.circle(annotated_frame, ball_center, 7, ball_color, 2)
-                    cv2.putText(
-                        annotated_frame,
-                        f"ball:{ball_state.status.value}",
-                        (ball_center[0] + 8, ball_center[1]),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        0.45,
-                        ball_color,
-                        1,
-                    )
 
         publish_frame = getattr(self._store, "publish_raw_frame", None)
         if publish_frame is not None:
@@ -820,91 +773,6 @@ class InferencePipeline:
             if track_id in current_ids
         }
 
-    def _process_ball(
-        self,
-        frame: np.ndarray,
-        frame_index: int,
-        projection: Any,
-        timestamp_s: float,
-    ) -> BallState:
-        if self._ball_processor is None:
-            return BallState()
-
-        estimate = self._ball_processor.process(
-            frame=frame,
-            frame_index=frame_index,
-            timestamp_s=timestamp_s,
-        )
-        if estimate.position is None:
-            self._previous_ball_field_xy = None
-            self._previous_ball_timestamp_s = None
-            return BallState(
-                status=BallStatus.UNAVAILABLE,
-                confidence=estimate.confidence,
-                age_frames=estimate.age_frames,
-            )
-
-        image_xy = np.asarray(estimate.position, dtype=np.float32).reshape(-1)
-        frame_height, frame_width = frame.shape[:2]
-        if image_xy.size < 2 or not np.isfinite(image_xy[:2]).all():
-            self._ball_processor.tracker.reset()
-            return BallState(
-                status=BallStatus.UNAVAILABLE,
-                confidence=0.0,
-                age_frames=estimate.age_frames,
-            )
-        image_xy = image_xy[:2]
-        if not (0 <= image_xy[0] < frame_width and 0 <= image_xy[1] < frame_height):
-            # A prediction that leaves the image is no longer useful for either
-            # annotation or projection.  Reset instead of carrying a runaway
-            # velocity into later frames.
-            self._ball_processor.tracker.reset()
-            return BallState(
-                status=BallStatus.UNAVAILABLE,
-                confidence=0.0,
-                age_frames=estimate.age_frames,
-            )
-        field_xy: Optional[np.ndarray] = None
-        if projection.homography is not None:
-            try:
-                field_xy = cv2.perspectiveTransform(
-                    image_xy.reshape(1, 1, 2), projection.homography
-                ).reshape(2)
-            except cv2.error:
-                field_xy = None
-
-        valid_field = bool(
-            field_xy is not None
-            and np.isfinite(field_xy).all()
-            and 0 <= field_xy[0] <= self._vision_core.projection_engine.config.length
-            and 0 <= field_xy[1] <= self._vision_core.projection_engine.config.width
-        )
-        if not valid_field:
-            field_xy = None
-            self._previous_ball_field_xy = None
-            self._previous_ball_timestamp_s = None
-
-        field_velocity: Optional[np.ndarray] = None
-        if field_xy is not None and self._previous_ball_field_xy is not None:
-            dt = max(timestamp_s - (self._previous_ball_timestamp_s or timestamp_s), 1e-3)
-            field_velocity = (field_xy - self._previous_ball_field_xy) / dt
-        if field_xy is not None:
-            self._previous_ball_field_xy = field_xy.copy()
-            self._previous_ball_timestamp_s = timestamp_s
-
-        status = BallStatus(estimate.status)
-        return BallState(
-            status=status,
-            image_x=float(image_xy[0]),
-            image_y=float(image_xy[1]),
-            field_x=float(field_xy[0]) if field_xy is not None else None,
-            field_y=float(field_xy[1]) if field_xy is not None else None,
-            velocity_x=float(field_velocity[0]) if field_velocity is not None else None,
-            velocity_y=float(field_velocity[1]) if field_velocity is not None else None,
-            confidence=estimate.confidence,
-            age_frames=estimate.age_frames,
-        )
-
     @staticmethod
     def _find_possession_track_id(players: list[PlayerState], ball: BallState) -> Optional[int]:
         if ball.field_x is None or ball.field_y is None:
@@ -987,10 +855,6 @@ class InferencePipeline:
         track_lifecycle_counts = (
             dict(vision_core.track_lifecycle_counts) if vision_core is not None else {}
         )
-        ball_processor = self._ball_processor
-        ball_calls = ball_processor.detection_count if ball_processor is not None else 0
-        ball_predicted = ball_processor.predicted_frames if ball_processor is not None else 0
-        ball_available = ball_processor.available_frames if ball_processor is not None else 0
         semantic_switches = (
             int(getattr(self._semantic_manager, "semantic_label_switches", 0))
             if self._semantic_manager is not None
@@ -1043,9 +907,6 @@ class InferencePipeline:
                 / max(getattr(self, "team_inference_count", 0), 1),
             ),
             team_label_switches=team_switches,
-            ball_detection_count=ball_calls,
-            ball_predicted_frames=ball_predicted,
-            ball_available_ratio=round(ball_available / max(processed, 1), 3),
             jpeg_frames_encoded=int(getattr(self._store, "jpeg_frames_encoded", 0)),
             jpeg_encode_latency_ms=round(
                 float(getattr(self._store, "jpeg_encode_latency_ms", 0.0)), 3

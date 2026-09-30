@@ -41,7 +41,7 @@ echo "  Node.js $(node -v) OK"
 echo ""
 echo "[2/6] Checking model weights..."
 MISSING=0
-for f in football-ball-detection.pt football-player-detection.pt football-pitch-detection.pt; do
+for f in football-player-detection.pt football-pitch-detection.pt; do
     if [ ! -f "assets/weights/$f" ]; then
         echo -e "  ${YELLOW}MISSING${NC}: assets/weights/$f"
         MISSING=1

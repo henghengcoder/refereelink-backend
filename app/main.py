@@ -7,7 +7,6 @@ import supervision as sv
 
 from app.runtime import normalize_proxy_env
 from app.constants.paths import (
-    BALL_DETECTION_MODEL_PATH,
     CAMERA_CALIBRATION_PATH,
     PITCH_DETECTION_MODEL_PATH,
     PLAYER_DETECTION_MODEL_PATH,
@@ -17,16 +16,15 @@ from app.constants.paths import (
 
 
 class Mode(Enum):
-    PITCH_DETECTION = 'PITCH_DETECTION'
-    PLAYER_DETECTION = 'PLAYER_DETECTION'
-    BALL_DETECTION = 'BALL_DETECTION'
-    PLAYER_TRACKING = 'PLAYER_TRACKING'
-    TEAM_CLASSIFICATION = 'TEAM_CLASSIFICATION'
-    RADAR = 'RADAR'
-    RADAR_DASHBOARD = 'RADAR_DASHBOARD'
-    RADAR_DASHBOARD_LEGACY = 'RADAR_DASHBOARD_LEGACY'
-    FOUL_DETECTION = 'FOUL_DETECTION'
-    SERVER = 'SERVER'
+    PITCH_DETECTION = "PITCH_DETECTION"
+    PLAYER_DETECTION = "PLAYER_DETECTION"
+    PLAYER_TRACKING = "PLAYER_TRACKING"
+    TEAM_CLASSIFICATION = "TEAM_CLASSIFICATION"
+    RADAR = "RADAR"
+    RADAR_DASHBOARD = "RADAR_DASHBOARD"
+    RADAR_DASHBOARD_LEGACY = "RADAR_DASHBOARD_LEGACY"
+    FOUL_DETECTION = "FOUL_DETECTION"
+    SERVER = "SERVER"
 
 
 def main(
@@ -43,10 +41,6 @@ def main(
     calibration_alpha: float = 0.0,
     pitch_detection_interval: int = 5,
     imgsz: int = 640,
-    ball_model_path: str = BALL_DETECTION_MODEL_PATH,
-    enable_ball: bool = True,
-    ball_detection_interval: int = 2,
-    ball_max_prediction_frames: int = 8,
     role_model_path: str = ROLE_DETECTION_MODEL_PATH,
     team_classifier_path: Optional[str] = TEAM_CLASSIFIER_PATH,
     role_detection_interval: int = 3,
@@ -93,32 +87,40 @@ def main(
     if mode == Mode.SERVER:
         from app.server.main import main as server_main
         import sys
+
         sys.argv = [
             sys.argv[0],
-            '--video_source', source_video_path,
-            '--device', device,
-            '--inference_backend', inference_backend,
-            '--player_model_path', player_model_path,
-            '--pitch_model_path', pitch_model_path,
-            '--camera_calibration_path', camera_calibration_path or '',
-            '--calibration_alpha', str(calibration_alpha),
-            '--pitch_detection_interval', str(pitch_detection_interval),
-            '--imgsz', str(imgsz),
-            '--ball_model_path', ball_model_path,
-            '--ball_detection_interval', str(ball_detection_interval),
-            '--ball_max_prediction_frames', str(ball_max_prediction_frames),
-            '--role_model_path', role_model_path,
-            '--role_detection_interval', str(role_detection_interval),
-            '--team_classification_interval', str(team_classification_interval),
+            "--video_source",
+            source_video_path,
+            "--device",
+            device,
+            "--inference_backend",
+            inference_backend,
+            "--player_model_path",
+            player_model_path,
+            "--pitch_model_path",
+            pitch_model_path,
+            "--camera_calibration_path",
+            camera_calibration_path or "",
+            "--calibration_alpha",
+            str(calibration_alpha),
+            "--pitch_detection_interval",
+            str(pitch_detection_interval),
+            "--imgsz",
+            str(imgsz),
+            "--role_model_path",
+            role_model_path,
+            "--role_detection_interval",
+            str(role_detection_interval),
+            "--team_classification_interval",
+            str(team_classification_interval),
         ]
         if team_classifier_path:
-            sys.argv += ['--team_classifier_path', team_classifier_path]
+            sys.argv += ["--team_classifier_path", team_classifier_path]
         if not enable_undistortion:
-            sys.argv.append('--disable_undistortion')
-        if not enable_ball:
-            sys.argv.append('--disable_ball')
+            sys.argv.append("--disable_undistortion")
         if foul_checkpoint_path:
-            sys.argv += ['--foul_checkpoint_path', foul_checkpoint_path, '--enable_foul_detection']
+            sys.argv += ["--foul_checkpoint_path", foul_checkpoint_path, "--enable_foul_detection"]
         server_main()
         return
 
@@ -146,16 +148,6 @@ def main(
             enable_undistortion=enable_undistortion,
             calibration_alpha=calibration_alpha,
             imgsz=imgsz,
-        )
-    elif mode == Mode.BALL_DETECTION:
-        from app.modes.ball_detection import run_ball_detection
-
-        frame_generator = run_ball_detection(
-            source_video_path=source_video_path,
-            device=device,
-            camera_calibration_path=camera_calibration_path,
-            enable_undistortion=enable_undistortion,
-            calibration_alpha=calibration_alpha,
         )
     elif mode == Mode.PLAYER_TRACKING:
         from app.modes.player_tracking import run_player_tracking
@@ -201,6 +193,7 @@ def main(
 
         if foul_checkpoint_path is None:
             from app.constants.paths import FOUL_MODEL_PATH
+
             foul_checkpoint_path = FOUL_MODEL_PATH
 
         frame_generator = run_foul_detection(
@@ -225,38 +218,38 @@ def main(
         cv2.destroyAllWindows()
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='')
-    parser.add_argument('--source_video_path', type=str, required=True)
-    parser.add_argument('--target_video_path', type=str, required=True)
-    parser.add_argument('--device', type=str, default='cpu')
-    parser.add_argument('--inference_backend', type=str, choices=('auto', 'pytorch', 'onnx', 'tensorrt'), default='auto')
-    parser.add_argument('--mode', type=Mode, default=Mode.PLAYER_DETECTION)
-    parser.add_argument('--player_model_path', type=str, default=PLAYER_DETECTION_MODEL_PATH)
-    parser.add_argument('--pitch_model_path', type=str, default=PITCH_DETECTION_MODEL_PATH)
-    parser.add_argument('--camera_calibration_path', type=str, default=CAMERA_CALIBRATION_PATH)
-    parser.add_argument('--disable_undistortion', action='store_false', dest='enable_undistortion')
-    parser.set_defaults(enable_undistortion=True)
-    parser.add_argument('--calibration_alpha', type=float, default=0.0)
-    parser.add_argument('--pitch_detection_interval', type=int, default=5)
-    parser.add_argument('--imgsz', type=int, default=640)
-    parser.add_argument('--ball_model_path', type=str, default=BALL_DETECTION_MODEL_PATH)
-    parser.add_argument('--disable_ball', action='store_false', dest='enable_ball')
-    parser.set_defaults(enable_ball=True)
-    parser.add_argument('--ball_detection_interval', type=int, default=2)
-    parser.add_argument('--ball_max_prediction_frames', type=int, default=8)
-    parser.add_argument('--role_model_path', type=str, default=ROLE_DETECTION_MODEL_PATH)
-    parser.add_argument('--team_classifier_path', type=str, default=TEAM_CLASSIFIER_PATH)
-    parser.add_argument('--role_detection_interval', type=int, default=3)
-    parser.add_argument('--team_classification_interval', type=int, default=5)
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="")
+    parser.add_argument("--source_video_path", type=str, required=True)
+    parser.add_argument("--target_video_path", type=str, required=True)
+    parser.add_argument("--device", type=str, default="cpu")
     parser.add_argument(
-        '--foul_checkpoint_path',
+        "--inference_backend",
+        type=str,
+        choices=("auto", "pytorch", "onnx", "tensorrt"),
+        default="auto",
+    )
+    parser.add_argument("--mode", type=Mode, default=Mode.PLAYER_DETECTION)
+    parser.add_argument("--player_model_path", type=str, default=PLAYER_DETECTION_MODEL_PATH)
+    parser.add_argument("--pitch_model_path", type=str, default=PITCH_DETECTION_MODEL_PATH)
+    parser.add_argument("--camera_calibration_path", type=str, default=CAMERA_CALIBRATION_PATH)
+    parser.add_argument("--disable_undistortion", action="store_false", dest="enable_undistortion")
+    parser.set_defaults(enable_undistortion=True)
+    parser.add_argument("--calibration_alpha", type=float, default=0.0)
+    parser.add_argument("--pitch_detection_interval", type=int, default=5)
+    parser.add_argument("--imgsz", type=int, default=640)
+    parser.add_argument("--role_model_path", type=str, default=ROLE_DETECTION_MODEL_PATH)
+    parser.add_argument("--team_classifier_path", type=str, default=TEAM_CLASSIFIER_PATH)
+    parser.add_argument("--role_detection_interval", type=int, default=3)
+    parser.add_argument("--team_classification_interval", type=int, default=5)
+    parser.add_argument(
+        "--foul_checkpoint_path",
         type=str,
         default=None,
         help=(
-            'Path to MVFoul checkpoint (.pth.tar). '
-            'Required for FOUL_DETECTION mode (falls back to assets/weights/mvfoul.pth.tar). '
-            'Optional for RADAR / RADAR_DASHBOARD — enables the foul HUD overlay when provided.'
+            "Path to MVFoul checkpoint (.pth.tar). "
+            "Required for FOUL_DETECTION mode (falls back to assets/weights/mvfoul.pth.tar). "
+            "Optional for RADAR / RADAR_DASHBOARD — enables the foul HUD overlay when provided."
         ),
     )
     args = parser.parse_args()
@@ -274,10 +267,6 @@ if __name__ == '__main__':
         calibration_alpha=args.calibration_alpha,
         pitch_detection_interval=args.pitch_detection_interval,
         imgsz=args.imgsz,
-        ball_model_path=args.ball_model_path,
-        enable_ball=args.enable_ball,
-        ball_detection_interval=args.ball_detection_interval,
-        ball_max_prediction_frames=args.ball_max_prediction_frames,
         role_model_path=args.role_model_path,
         team_classifier_path=args.team_classifier_path,
         role_detection_interval=args.role_detection_interval,

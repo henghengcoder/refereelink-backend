@@ -176,10 +176,6 @@ async def start_team_calibration(
             calibration_alpha=store.config.calibration_alpha,
             pitch_detection_interval=store.config.pitch_detection_interval,
             imgsz=store.config.imgsz,
-            ball_model_path=store.config.ball_model_path,
-            enable_ball=False,
-            ball_detection_interval=store.config.ball_detection_interval,
-            ball_max_prediction_frames=store.config.ball_max_prediction_frames,
             role_model_path=store.config.role_model_path,
             team_calibration_path=None,
             role_detection_interval=store.config.role_detection_interval,
@@ -187,7 +183,9 @@ async def start_team_calibration(
             calibration_session=session,
         )
         attach_and_start(pipeline)
-        store.update_config({"video_source": source, "device": payload.device or store.config.device})
+        store.update_config(
+            {"video_source": source, "device": payload.device or store.config.device}
+        )
     except Exception as exc:
         logger.exception("Failed to start team calibration")
         session.reset()
@@ -251,10 +249,12 @@ def _video_response(path, request: Request):
         raise HTTPException(status_code=416, detail="byte range is outside the video")
     end = min(end, size - 1)
     length = end - start + 1
-    headers.update({
-        "Content-Length": str(length),
-        "Content-Range": f"bytes {start}-{end}/{size}",
-    })
+    headers.update(
+        {
+            "Content-Length": str(length),
+            "Content-Range": f"bytes {start}-{end}/{size}",
+        }
+    )
 
     def iterator():
         with path.open("rb") as handle:

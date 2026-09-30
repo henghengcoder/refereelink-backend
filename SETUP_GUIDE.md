@@ -35,7 +35,6 @@ mkdir -p assets/weights
 |------|----------|----------|
 | 官方球员检测（推荐轻量） | https://github.com/ultralytics/assets/releases | `assets/weights/yolo11n.pt` |
 | 官方球员检测（推荐默认） | https://github.com/ultralytics/assets/releases | `assets/weights/yolo11s.pt` |
-| 足球检测 | https://drive.google.com/uc?id=1isw4wx-MK9h9LMr36VvIWlJD6ppUvw7V | `assets/weights/football-ball-detection.pt` |
 | 旧版角色球员检测 | https://drive.google.com/uc?id=17PXFNlx-jI7VjVo_vQnB1sONjRyvoB-q | `assets/weights/football-player-detection.pt` |
 | 球场检测 | https://drive.google.com/uc?id=1Ma5Kt86tgpdjCTKfum79YMgNnSjcoOyf | `assets/weights/football-pitch-detection.pt` |
 

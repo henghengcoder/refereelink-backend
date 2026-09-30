@@ -149,9 +149,6 @@ class MetricsSnapshot(BaseModel):
     team_inference_count: int = 0
     team_unknown_rate: float = 0.0
     team_label_switches: int = 0
-    ball_detection_count: int = 0
-    ball_predicted_frames: int = 0
-    ball_available_ratio: float = 0.0
     jpeg_frames_encoded: int = 0
     jpeg_encode_latency_ms: float = 0.0
     foul_inference_count: int = 0
@@ -183,16 +180,12 @@ class PipelineConfig(BaseModel):
     team_classifier_path: Optional[str] = None
     team_calibration_path: Optional[str] = None
     require_team_calibration: bool = True
-    ball_model_path: str = "assets/weights/football-ball-detection.pt"
-    enable_ball: bool = True
     role_detection_interval: int = Field(3, ge=1)
     team_classification_interval: int = Field(5, ge=1)
     track_activation_threshold: float = Field(0.25, ge=0.0, le=1.0)
     track_lost_buffer: int = Field(45, ge=1)
     track_matching_threshold: float = Field(0.8, ge=0.0, le=1.0)
     track_minimum_consecutive_frames: int = Field(2, ge=1)
-    ball_detection_interval: int = Field(2, ge=1)
-    ball_max_prediction_frames: int = Field(8, ge=0)
     camera_calibration_path: str = "assets/calibration/camera.npz"
     enable_undistortion: bool = True
     calibration_alpha: float = Field(0.0, ge=0.0, le=1.0)

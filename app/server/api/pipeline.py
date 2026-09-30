@@ -48,10 +48,6 @@ class PipelineStartPayload(BaseModel):
     player_iou: Optional[float] = None
     max_prediction_gap_frames: Optional[int] = None
     track_reactivation_window_frames: Optional[int] = None
-    ball_model_path: Optional[str] = None
-    enable_ball: Optional[bool] = None
-    ball_detection_interval: Optional[int] = None
-    ball_max_prediction_frames: Optional[int] = None
     role_model_path: Optional[str] = None
     team_classifier_path: Optional[str] = None
     team_calibration_path: Optional[str] = None
@@ -100,10 +96,6 @@ async def pipeline_start(request: Request, payload: PipelineStartPayload) -> dic
             payload.player_iou,
             payload.max_prediction_gap_frames,
             payload.track_reactivation_window_frames,
-            payload.ball_model_path,
-            payload.enable_ball,
-            payload.ball_detection_interval,
-            payload.ball_max_prediction_frames,
             payload.role_model_path,
             payload.team_classifier_path,
             payload.team_calibration_path,
@@ -144,10 +136,6 @@ async def pipeline_start(request: Request, payload: PipelineStartPayload) -> dic
         and payload.player_iou is None
         and payload.max_prediction_gap_frames is None
         and payload.track_reactivation_window_frames is None
-        and payload.ball_model_path is None
-        and payload.enable_ball is None
-        and payload.ball_detection_interval is None
-        and payload.ball_max_prediction_frames is None
         and payload.role_model_path is None
         and payload.team_classifier_path is None
         and payload.team_calibration_path is None
@@ -260,22 +248,6 @@ async def pipeline_start(request: Request, payload: PipelineStartPayload) -> dic
                     if payload.track_reactivation_window_frames is not None
                     else store.config.track_reactivation_window_frames
                 ),
-                ball_model_path=payload.ball_model_path or store.config.ball_model_path,
-                enable_ball=(
-                    payload.enable_ball
-                    if payload.enable_ball is not None
-                    else store.config.enable_ball
-                ),
-                ball_detection_interval=(
-                    payload.ball_detection_interval
-                    if payload.ball_detection_interval is not None
-                    else store.config.ball_detection_interval
-                ),
-                ball_max_prediction_frames=(
-                    payload.ball_max_prediction_frames
-                    if payload.ball_max_prediction_frames is not None
-                    else store.config.ball_max_prediction_frames
-                ),
                 role_model_path=payload.role_model_path or store.config.role_model_path,
                 team_classifier_path=(
                     payload.team_classifier_path
@@ -383,22 +355,6 @@ async def pipeline_start(request: Request, payload: PipelineStartPayload) -> dic
                         payload.track_reactivation_window_frames
                         if payload.track_reactivation_window_frames is not None
                         else store.config.track_reactivation_window_frames
-                    ),
-                    "ball_model_path": payload.ball_model_path or store.config.ball_model_path,
-                    "enable_ball": (
-                        payload.enable_ball
-                        if payload.enable_ball is not None
-                        else store.config.enable_ball
-                    ),
-                    "ball_detection_interval": (
-                        payload.ball_detection_interval
-                        if payload.ball_detection_interval is not None
-                        else store.config.ball_detection_interval
-                    ),
-                    "ball_max_prediction_frames": (
-                        payload.ball_max_prediction_frames
-                        if payload.ball_max_prediction_frames is not None
-                        else store.config.ball_max_prediction_frames
                     ),
                     "role_model_path": payload.role_model_path or store.config.role_model_path,
                     "team_classifier_path": (

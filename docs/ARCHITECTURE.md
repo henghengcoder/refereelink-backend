@@ -49,10 +49,9 @@ at a lower frequency, with bounded temporal voting and UNKNOWN fallback. Pitch
 keypoints run on frame 1 and then every configured interval (default 5); skipped
 frames reuse the last homography for at most 0.5 seconds.
 
-`app/vision/ball.py` keeps the ball path separate from player ByteTrack. It
-runs the ball detector at a configured interval, uses a bounded constant-
-velocity predictor between detections, projects valid estimates through the
-current homography, and exposes `fresh`, `predicted`, or `unavailable` status.
+`FrameState.ball` still carries `field_x`, `field_y`, and `status` for the
+dashboard pitch. The pipeline leaves that state unavailable; a later sensor
+fills it. Camera inference does not detect the ball.
 
 ### `app/events/engine.py`
 

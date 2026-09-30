@@ -6,7 +6,7 @@
 
 ## 项目定位
 
-这是一个足球比赛实时计算机视觉与辅助判罚系统：Python 后端负责视频采集、相机去畸变、YOLO/ByteTrack、球场关键点与单应性投影、球/球员语义和事件候选；FastAPI 对外提供 REST、WebSocket 和 MJPEG；`web/` 是当前唯一积极维护的 React/Vite 前端；`app/multiview/` 提供多视角犯规证据与复核链路。
+这是一个足球比赛实时计算机视觉与辅助判罚系统：Python 后端负责视频采集、相机去畸变、YOLO/ByteTrack、球场关键点与单应性投影、球员语义和事件候选；球的场地坐标留给后续传感器，视觉管线不再检测球。FastAPI 对外提供 REST、WebSocket 和 MJPEG；`web/` 是当前唯一积极维护的 React/Vite 前端；`app/multiview/` 提供多视角犯规证据与复核链路。
 
 核心数据流是：
 

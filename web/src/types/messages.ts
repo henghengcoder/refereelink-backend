@@ -111,9 +111,6 @@ export interface MetricsSnapshot {
   team_inference_count: number;
   team_unknown_rate: number;
   team_label_switches: number;
-  ball_detection_count: number;
-  ball_predicted_frames: number;
-  ball_available_ratio: number;
   jpeg_frames_encoded: number;
   jpeg_encode_latency_ms: number;
   foul_inference_count: number;
@@ -225,16 +222,12 @@ export interface PipelineConfig {
   team_classifier_path: string | null;
   team_calibration_path: string | null;
   require_team_calibration: boolean;
-  ball_model_path: string;
-  enable_ball: boolean;
   role_detection_interval: number;
   team_classification_interval: number;
   track_activation_threshold: number;
   track_lost_buffer: number;
   track_matching_threshold: number;
   track_minimum_consecutive_frames: number;
-  ball_detection_interval: number;
-  ball_max_prediction_frames: number;
   camera_calibration_path: string;
   enable_undistortion: boolean;
   calibration_alpha: number;

@@ -33,7 +33,6 @@ PY
 if [[ -f "yolo11s.pt" ]]; then
     mv -f "yolo11s.pt" "$WEIGHTS_DIR/yolo11s.pt"
 fi
-gdown -O "$WEIGHTS_DIR/football-ball-detection.pt" "https://drive.google.com/uc?id=1isw4wx-MK9h9LMr36VvIWlJD6ppUvw7V"
 gdown -O "$WEIGHTS_DIR/football-player-detection.pt" "https://drive.google.com/uc?id=17PXFNlx-jI7VjVo_vQnB1sONjRyvoB-q"
 gdown -O "$WEIGHTS_DIR/football-pitch-detection.pt" "https://drive.google.com/uc?id=1Ma5Kt86tgpdjCTKfum79YMgNnSjcoOyf"
 

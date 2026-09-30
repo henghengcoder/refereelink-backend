@@ -22,7 +22,6 @@ from app.referee_alerts.service import RefereeAlertService
 from app.field_ingest.api import create_router as create_field_ingest_router
 from app.field_ingest.service import FieldIngestService
 from app.constants.paths import (
-    BALL_DETECTION_MODEL_PATH,
     CAMERA_CALIBRATION_PATH,
     PITCH_DETECTION_MODEL_PATH,
     PLAYER_DETECTION_MODEL_PATH,
@@ -118,10 +117,6 @@ def create_pipeline(
     player_iou: float = 0.7,
     max_prediction_gap_frames: int = 6,
     track_reactivation_window_frames: int = 12,
-    ball_model_path: str = BALL_DETECTION_MODEL_PATH,
-    enable_ball: bool = True,
-    ball_detection_interval: int = 2,
-    ball_max_prediction_frames: int = 8,
     role_model_path: str = ROLE_DETECTION_MODEL_PATH,
     team_classifier_path: Optional[str] = TEAM_CLASSIFIER_PATH,
     team_calibration_path: Optional[str] = None,
@@ -170,10 +165,6 @@ def create_pipeline(
             player_iou=player_iou,
             max_prediction_gap_frames=max_prediction_gap_frames,
             track_reactivation_window_frames=track_reactivation_window_frames,
-            ball_model_path=ball_model_path,
-            enable_ball=enable_ball,
-            ball_detection_interval=ball_detection_interval,
-            ball_max_prediction_frames=ball_max_prediction_frames,
             role_model_path=role_model_path,
             team_classifier_path=team_classifier_path,
             team_calibration_path=team_calibration_path,
@@ -329,11 +320,6 @@ def main() -> None:
     parser.add_argument("--player_iou", type=float, default=0.7)
     parser.add_argument("--max_prediction_gap_frames", type=int, default=6)
     parser.add_argument("--track_reactivation_window_frames", type=int, default=12)
-    parser.add_argument("--ball_model_path", type=str, default=BALL_DETECTION_MODEL_PATH)
-    parser.add_argument("--disable_ball", action="store_false", dest="enable_ball")
-    parser.set_defaults(enable_ball=True)
-    parser.add_argument("--ball_detection_interval", type=int, default=2)
-    parser.add_argument("--ball_max_prediction_frames", type=int, default=8)
     parser.add_argument("--role_model_path", type=str, default=ROLE_DETECTION_MODEL_PATH)
     parser.add_argument("--team_classifier_path", type=str, default=None)
     parser.add_argument("--team_calibration_path", type=str, default=None)
@@ -371,10 +357,6 @@ def main() -> None:
             "player_iou": args.player_iou,
             "max_prediction_gap_frames": args.max_prediction_gap_frames,
             "track_reactivation_window_frames": args.track_reactivation_window_frames,
-            "ball_model_path": args.ball_model_path,
-            "enable_ball": args.enable_ball,
-            "ball_detection_interval": args.ball_detection_interval,
-            "ball_max_prediction_frames": args.ball_max_prediction_frames,
             "role_model_path": args.role_model_path,
             "team_classifier_path": args.team_classifier_path,
             "team_calibration_path": args.team_calibration_path,
@@ -408,10 +390,6 @@ def main() -> None:
             player_iou=args.player_iou,
             max_prediction_gap_frames=args.max_prediction_gap_frames,
             track_reactivation_window_frames=args.track_reactivation_window_frames,
-            ball_model_path=args.ball_model_path,
-            enable_ball=args.enable_ball,
-            ball_detection_interval=args.ball_detection_interval,
-            ball_max_prediction_frames=args.ball_max_prediction_frames,
             role_model_path=args.role_model_path,
             team_classifier_path=args.team_classifier_path,
             team_calibration_path=args.team_calibration_path,

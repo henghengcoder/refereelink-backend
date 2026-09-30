@@ -3,7 +3,7 @@
 The backends in this module deliberately return the model's native prediction
 value.  Converting that value to ``supervision.Detections`` remains the
 responsibility of the caller, which keeps this layer independent from the
-player, pitch, and ball-specific post-processing code.
+player and pitch post-processing code.
 """
 
 from __future__ import annotations
@@ -99,8 +99,7 @@ def _normalize_backend(backend: str) -> BackendName:
     except KeyError as exc:
         supported = ", ".join(sorted({"pytorch", "onnx", "tensorrt"}))
         raise ValueError(
-            f"Unsupported inference backend '{backend}'. "
-            f"Supported backends: {supported}."
+            f"Unsupported inference backend '{backend}'. Supported backends: {supported}."
         ) from exc
 
 
