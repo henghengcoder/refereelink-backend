@@ -66,9 +66,7 @@ def test_missing_measurement_is_not_invented() -> None:
     filter_ = PlayerPositionFilter()
     filter_.update([1, 2], np.array([[1000.0, 1000.0], [2000.0, 2000.0]]), 1, [60.0, 60.0])
 
-    out = filter_.update(
-        [1, 2], np.array([[1010.0, 1000.0], [np.nan, np.nan]]), 2, [60.0, 60.0]
-    )
+    out = filter_.update([1, 2], np.array([[1010.0, 1000.0], [np.nan, np.nan]]), 2, [60.0, 60.0])
 
     assert np.isfinite(out[0]).all()
     assert np.isnan(out[1]).all()

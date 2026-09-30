@@ -22,7 +22,7 @@ def _make_frame_with_points(points: Iterable[Tuple[float, float]]) -> np.ndarray
     for x_coord, y_coord in points:
         x_int = int(round(x_coord))
         y_int = int(round(y_coord))
-        frame[max(0, y_int - 2):y_int + 3, max(0, x_int - 2):x_int + 3] = (255, 255, 255)
+        frame[max(0, y_int - 2) : y_int + 3, max(0, x_int - 2) : x_int + 3] = (255, 255, 255)
     return frame
 
 
@@ -76,7 +76,7 @@ def test_pitch_projection_engine_rejects_outlier_and_builds_fresh_homography() -
     projection = engine.update(frame=frame, keypoints=_make_keypoints(assignments))
     labels = {observation.reference.label for observation in projection.tracking_observations}
 
-    assert projection.homography_status == 'fresh'
+    assert projection.homography_status == "fresh"
     assert projection.available
     assert REFERENCES[30].label not in labels
 
@@ -101,8 +101,8 @@ def test_pitch_projection_engine_reuses_stale_homography_without_showing_missing
         keypoints=_make_keypoints({}),
     )
 
-    assert first_projection.homography_status == 'fresh'
-    assert second_projection.homography_status == 'stale'
+    assert first_projection.homography_status == "fresh"
+    assert second_projection.homography_status == "stale"
     assert second_projection.available
     assert second_projection.tracking_observations == []
 
@@ -147,7 +147,9 @@ def test_homography_deviation_is_median_pitch_distance() -> None:
     )
 
     assert deviation == 150.0
-    assert homography_deviation(_scale_homography(10.0), _scale_homography(10.0), points[:0]) is None
+    assert (
+        homography_deviation(_scale_homography(10.0), _scale_homography(10.0), points[:0]) is None
+    )
 
 
 def test_blend_homographies_moves_part_way_towards_new_fit() -> None:

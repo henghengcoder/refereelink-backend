@@ -95,7 +95,13 @@ def test_pitch_detection_is_scheduled_and_person_is_unknown():
 
     assert projection_engine.pitch_calls == 2
     assert [frame.projection.homography_status for frame in frames] == [
-        "fresh", "reused", "reused", "reused", "reused", "fresh", "reused"
+        "fresh",
+        "reused",
+        "reused",
+        "reused",
+        "reused",
+        "fresh",
+        "reused",
     ]
     assert frames[0].color_lookup.tolist() == [4]
     assert np.allclose(frames[0].field_xy[0], [10, 15])

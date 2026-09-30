@@ -289,8 +289,7 @@ class VisionCore:
     def _should_detect_pitch(self, frame_index: int) -> bool:
         return (
             self._last_pitch_detection_frame is None
-            or frame_index - self._last_pitch_detection_frame
-            >= self.pitch_detection_interval
+            or frame_index - self._last_pitch_detection_frame >= self.pitch_detection_interval
         )
 
     def _projection_for_frame(
@@ -423,9 +422,9 @@ class VisionCore:
         if projection.homography is None or len(detections) == 0:
             return field_xy
 
-        image_xy = detections.get_anchors_coordinates(
-            anchor=sv.Position.BOTTOM_CENTER
-        ).astype(np.float32)
+        image_xy = detections.get_anchors_coordinates(anchor=sv.Position.BOTTOM_CENTER).astype(
+            np.float32
+        )
         try:
             transformed = cv2.perspectiveTransform(
                 image_xy.reshape(-1, 1, 2), projection.homography
@@ -501,9 +500,7 @@ class VisionCore:
             if self._track_missing_frames.get(track_id, 0) > 0
         }
         newly_missing_ids = {
-            track_id
-            for track_id in missing_ids
-            if self._track_missing_frames.get(track_id, 0) == 0
+            track_id for track_id in missing_ids if self._track_missing_frames.get(track_id, 0) == 0
         }
         if newly_missing_ids:
             self.track_id_interruptions += len(newly_missing_ids)
