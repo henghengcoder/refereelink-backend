@@ -120,7 +120,7 @@ def _render_panel(frame: np.ndarray, state: FrameState, panel_width: int) -> np.
         color = _color_for_team(player.team_id)
         cv2.circle(panel, point, 8, color, -1, cv2.LINE_AA)
         cv2.circle(panel, point, 9, (20, 20, 20), 1, cv2.LINE_AA)
-        label = f"#{player.track_id} {player.field_x / 1000:.1f},{player.field_y / 1000:.1f}m"
+        label = f"#{player.track_id} {player.field_x / 100:.1f},{player.field_y / 100:.1f}m"
         label_x = min(max(point[0] + 10, 4), panel_width - 170)
         label_y = min(max(point[1] - 8, 155), height - 8)
         _draw_text(panel, label, (label_x, label_y), color, 0.38)

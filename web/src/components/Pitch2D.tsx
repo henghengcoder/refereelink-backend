@@ -7,6 +7,17 @@ const PITCH_H = 7000;
 const PADDING = 40;
 // Stable fallback: zustand v5 re-renders forever if a selector returns a new [] each call.
 const NO_PLAYERS: PlayerState[] = [];
+// Longest tween between two backend updates; slower streams snap instead of drifting.
+const MAX_TWEEN_MS = 200;
+
+interface Marker {
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+  label: string;
+  color: string;
+}
 
 const TEAM_COLORS: Record<string, string> = {
   home: '#FF1493',
@@ -62,37 +73,81 @@ const Pitch2D: React.FC = () => {
   const homographyStatus = useDashboardStore(
     (s) => s.frameState?.homography_status ?? 'unavailable'
   );
+  // Markers keyed by entity, animated from their last drawn position to the
+  // newest backend position over roughly one update interval.
+  const markersRef = useRef<Map<number, Marker>>(new Map());
+  const tweenStartRef = useRef(0);
+  const tweenMsRef = useRef(0);
+  const lastUpdateRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const w = canvas.width;
-    const h = canvas.height;
-    ctx.clearRect(0, 0, w, h);
-    drawPitch(ctx, w, h);
-
+    const now = performance.now();
+    const t = tweenMsRef.current > 0
+      ? Math.min((now - tweenStartRef.current) / tweenMsRef.current, 1)
+      : 1;
+    const previous = markersRef.current;
+    const next = new Map<number, Marker>();
     for (const p of players) {
       if (p.field_x == null || p.field_y == null) continue;
-      const [sx, sy] = worldToCanvas(p.field_x, p.field_y, w, h);
-      const color = TEAM_COLORS[p.team] ?? TEAM_COLORS[String(p.team_id)] ?? '#888';
-
-      ctx.beginPath();
-      ctx.arc(sx, sy, 7, 0, Math.PI * 2);
-      ctx.fillStyle = color;
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
-      ctx.lineWidth = 1;
-      ctx.stroke();
-
-      ctx.fillStyle = '#fff';
-      ctx.font = '9px monospace';
-      ctx.textAlign = 'center';
-    ctx.fillText(`${p.entity_id ?? p.track_id}`, sx, sy - 11);
+      const key = p.entity_id ?? p.track_id;
+      const old = previous.get(key);
+      // Start from where the marker is currently drawn so tweens chain smoothly.
+      const fromX = old ? old.fromX + (old.toX - old.fromX) * t : p.field_x;
+      const fromY = old ? old.fromY + (old.toY - old.fromY) * t : p.field_y;
+      next.set(key, {
+        fromX,
+        fromY,
+        toX: p.field_x,
+        toY: p.field_y,
+        label: `${key}`,
+        color: TEAM_COLORS[p.team] ?? TEAM_COLORS[String(p.team_id)] ?? '#888',
+      });
     }
+    markersRef.current = next;
+    const interval = lastUpdateRef.current === null ? 0 : now - lastUpdateRef.current;
+    tweenMsRef.current = interval > 0 && interval <= MAX_TWEEN_MS ? interval : 0;
+    tweenStartRef.current = now;
+    lastUpdateRef.current = now;
   }, [players]);
+
+  useEffect(() => {
+    let frame = 0;
+    const draw = () => {
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext('2d');
+      if (canvas && ctx) {
+        const w = canvas.width;
+        const h = canvas.height;
+        ctx.clearRect(0, 0, w, h);
+        drawPitch(ctx, w, h);
+        const tween = tweenMsRef.current;
+        const t = tween > 0 ? Math.min((performance.now() - tweenStartRef.current) / tween, 1) : 1;
+        for (const m of markersRef.current.values()) {
+          const [sx, sy] = worldToCanvas(
+            m.fromX + (m.toX - m.fromX) * t,
+            m.fromY + (m.toY - m.fromY) * t,
+            w,
+            h
+          );
+          ctx.beginPath();
+          ctx.arc(sx, sy, 7, 0, Math.PI * 2);
+          ctx.fillStyle = m.color;
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+
+          ctx.fillStyle = '#fff';
+          ctx.font = '9px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText(m.label, sx, sy - 11);
+        }
+      }
+      frame = requestAnimationFrame(draw);
+    };
+    frame = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(frame);
+  }, []);
 
   return (
     <div className="panel pitch-panel">
