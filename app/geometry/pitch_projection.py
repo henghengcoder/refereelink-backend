@@ -69,6 +69,108 @@ def build_pitch_point_references(
     ]
 
 
+def translate_homography(
+    homography: np.ndarray,
+    shift_xy: Tuple[float, float],
+) -> np.ndarray:
+    """Compensate a pure image translation since ``homography`` was fitted.
+
+    ``shift_xy`` is the displacement of image content in the current frame
+    relative to the reference frame (``CameraMotionEstimator`` convention), so a
+    current pixel ``p`` corresponds to ``p - shift`` in the reference frame.
+    """
+
+    translation = np.array(
+        [[1.0, 0.0, -float(shift_xy[0])], [0.0, 1.0, -float(shift_xy[1])], [0.0, 0.0, 1.0]]
+    )
+    return np.asarray(homography, dtype=np.float64) @ translation
+
+
+def homography_deviation(
+    previous: np.ndarray,
+    current: np.ndarray,
+    image_points: np.ndarray,
+) -> Optional[float]:
+    """Median pitch-space distance between two homographies at image points."""
+
+    points = np.asarray(image_points, dtype=np.float64).reshape(-1, 2)
+    if len(points) == 0:
+        return None
+    homogeneous = np.hstack([points, np.ones((len(points), 1))])
+    projected = []
+    for matrix in (previous, current):
+        mapped = homogeneous @ np.asarray(matrix, dtype=np.float64).T
+        with np.errstate(divide="ignore", invalid="ignore"):
+            projected.append(mapped[:, :2] / mapped[:, 2:3])
+    distances = np.linalg.norm(projected[1] - projected[0], axis=1)
+    distances = distances[np.isfinite(distances)]
+    if len(distances) == 0:
+        return None
+    return float(np.median(distances))
+
+
+def blend_homographies(
+    previous: np.ndarray,
+    current: np.ndarray,
+    alpha: float,
+    frame_shape: Sequence[int],
+    pitch_length: float,
+    pitch_width: float,
+    grid_size: int = 6,
+) -> np.ndarray:
+    """Move ``previous`` towards ``current`` by ``alpha`` in pitch space.
+
+    A grid of image points is projected through both matrices, the pitch
+    positions are linearly blended, and a homography is refitted.  Only grid
+    points that land on (a margin around) the pitch under both matrices are
+    used, so points above the horizon cannot poison the fit.  Falls back to
+    ``current`` when too few points are usable.
+    """
+
+    alpha = float(np.clip(alpha, 0.0, 1.0))
+    if alpha >= 1.0:
+        return np.asarray(current, dtype=np.float64)
+    height, width = int(frame_shape[0]), int(frame_shape[1])
+    xs = np.linspace(0.0, width - 1.0, grid_size)
+    ys = np.linspace(0.0, height - 1.0, grid_size)
+    image_points = np.array([[x, y] for y in ys for x in xs], dtype=np.float64)
+
+    def project(matrix: np.ndarray) -> np.ndarray:
+        homogeneous = np.hstack([image_points, np.ones((len(image_points), 1))]) @ np.asarray(
+            matrix, dtype=np.float64
+        ).T
+        with np.errstate(divide="ignore", invalid="ignore"):
+            return homogeneous[:, :2] / homogeneous[:, 2:3], homogeneous[:, 2]
+
+    previous_world, previous_w = project(previous)
+    current_world, current_w = project(current)
+    margin_x = 0.5 * pitch_length
+    margin_y = 0.5 * pitch_width
+
+    def usable(world: np.ndarray, w: np.ndarray) -> np.ndarray:
+        return (
+            np.isfinite(world).all(axis=1)
+            & (w > 0)
+            & (world[:, 0] >= -margin_x)
+            & (world[:, 0] <= pitch_length + margin_x)
+            & (world[:, 1] >= -margin_y)
+            & (world[:, 1] <= pitch_width + margin_y)
+        )
+
+    mask = usable(previous_world, previous_w) & usable(current_world, current_w)
+    if int(np.count_nonzero(mask)) < MIN_KEYPOINTS_FOR_HOMOGRAPHY + 2:
+        return np.asarray(current, dtype=np.float64)
+    blended_world = (1.0 - alpha) * previous_world[mask] + alpha * current_world[mask]
+    blended, _ = cv2.findHomography(
+        image_points[mask].astype(np.float32),
+        blended_world.astype(np.float32),
+        0,
+    )
+    if blended is None or not np.isfinite(blended).all():
+        return np.asarray(current, dtype=np.float64)
+    return blended
+
+
 class PitchProjectionEngine:
     def __init__(
         self,

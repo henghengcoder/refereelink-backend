@@ -73,11 +73,25 @@ def collect(name: str, device: str, diag_dir: Path) -> None:
     out_dir = diag_dir / name
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Wrap VisionCore.process at runtime to capture the homography fit per frame.
+    # Wrap VisionCore at runtime to capture, per frame, both the raw keypoint
+    # fit and the (possibly stabilised) homography actually used.
     projection_log: list[dict] = []
+    raw_fit: dict = {}
     original_process = vision_core.VisionCore.process
+    original_projection = vision_core.VisionCore._projection_for_frame
+
+    def projection_and_record(self, frame, frame_index, force_refresh=False):
+        result = original_projection(self, frame, frame_index, force_refresh=force_refresh)
+        raw_fit["H"] = (
+            None
+            if result.homography is None
+            else np.asarray(result.homography, dtype=float).tolist()
+        )
+        raw_fit["forced"] = bool(force_refresh)
+        return result
 
     def process_and_record(self, frame, frame_index):
+        raw_fit.clear()
         vision_frame = original_process(self, frame, frame_index)
         projection = vision_frame.projection
         projection_log.append(
@@ -95,11 +109,14 @@ def collect(name: str, device: str, diag_dir: Path) -> None:
                     if projection.homography is None
                     else np.asarray(projection.homography, dtype=float).tolist()
                 ),
+                "raw_H": raw_fit.get("H"),
+                "forced": raw_fit.get("forced", False),
             }
         )
         return vision_frame
 
     vision_core.VisionCore.process = process_and_record
+    vision_core.VisionCore._projection_for_frame = projection_and_record
 
     capture = cv2.VideoCapture(str(input_path))
     if not capture.isOpened():
@@ -164,6 +181,7 @@ def collect(name: str, device: str, diag_dir: Path) -> None:
             pipeline.stop()
             writer.close()
             vision_core.VisionCore.process = original_process
+            vision_core.VisionCore._projection_for_frame = original_projection
         elapsed = time.monotonic() - started
 
     render._make_contact_sheet(video_path, out_dir / f"{name}.jpg")
@@ -300,6 +318,26 @@ def analyze_video(name: str, diag_dir: Path) -> dict:
             jumps_after_reuse.append(float(np.median(distance)))
     jumps = np.array(jumps)
 
+    # Drift proxy: on fresh frames, how far the homography actually used is
+    # from the raw keypoint fit of that frame (0 when nothing is stabilised).
+    fit_gaps = []
+    for row in rows:
+        proj = row["proj"]
+        if proj.get("status") != "fresh" or proj.get("H") is None or not proj.get("raw_H"):
+            continue
+        feet = [
+            _bottom_center(player["bbox"])
+            for player in row["players"]
+            if player["x"] is not None and player["bbox"]
+        ]
+        if feet:
+            gap = np.linalg.norm(
+                _apply_homography(proj["H"], feet) - _apply_homography(proj["raw_H"], feet),
+                axis=1,
+            )
+            fit_gaps.append(float(np.median(gap)) / CM_PER_M)
+    fit_gaps = np.array(fit_gaps)
+
     return {
         "video": name,
         "frames": frame_count,
@@ -335,6 +373,8 @@ def analyze_video(name: str, diag_dir: Path) -> dict:
             float(np.median(jumps_after_reuse)) if jumps_after_reuse else None
         ),
         "hjump_over_1m": float(np.mean(jumps > 1.0)) if len(jumps) else None,
+        "fit_gap_median": float(np.median(fit_gaps)) if len(fit_gaps) else None,
+        "fit_gap_p95": _percentile(fit_gaps, 95),
         "tracks": len(trajectories),
         "track_len_median": float(np.median(track_lengths)),
         "track_len_mean": float(np.mean(track_lengths)),
