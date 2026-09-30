@@ -9,9 +9,8 @@ from app.geometry.pitch_projection import PitchProjectionResult
 from app.field_ingest.frames import CapturedFrame
 from app.pipeline.engine import InferencePipeline
 from app.pipeline.recorder import VideoRecorder
-from app.state.models import BallStatus, PlayerRole, TeamLabel
+from app.state.models import PlayerRole, TeamLabel
 from app.state.store import StateStore
-from app.vision.ball import BallProcessor
 from app.vision.core import VisionFrame
 from app.vision.semantics import SemanticResult
 
@@ -51,7 +50,7 @@ class _SemanticManager:
         }
 
 
-def test_pipeline_maps_semantics_ball_and_possession_to_frame_state(tmp_path) -> None:
+def test_pipeline_maps_semantics_and_field_coordinates_to_frame_state(tmp_path) -> None:
     detections = sv.Detections(
         xyxy=np.array([[8, 8, 12, 12]], dtype=np.float32),
         confidence=np.array([0.9], dtype=np.float32),
@@ -74,13 +73,6 @@ def test_pipeline_maps_semantics_ball_and_possession_to_frame_state(tmp_path) ->
         person_only=True,
     )
 
-    processor = BallProcessor(
-        detection_interval=1,
-        detector=lambda frame: sv.Detections(
-            xyxy=np.array([[8, 8, 12, 12]], dtype=np.float32),
-            confidence=np.array([0.95], dtype=np.float32),
-        ),
-    )
     pipeline = InferencePipeline.__new__(InferencePipeline)
     pipeline._source = _Source()
     pipeline._store = StateStore()
@@ -90,9 +82,6 @@ def test_pipeline_maps_semantics_ball_and_possession_to_frame_state(tmp_path) ->
     pipeline._semantic_last_frame = None
     pipeline._semantic_results = {}
     pipeline.semantic_inference_count = 0
-    pipeline._ball_processor = processor
-    pipeline._previous_ball_field_xy = None
-    pipeline._previous_ball_timestamp_s = None
     pipeline._metrics_start = time.monotonic()
     pipeline._metrics_frames = 0
     pipeline._recorder = VideoRecorder(str(tmp_path / "annotated.mp4"), pipeline._store, fps=10.0)
@@ -120,10 +109,9 @@ def test_pipeline_maps_semantics_ball_and_possession_to_frame_state(tmp_path) ->
     assert frame_state.players[0].team_id == 0
     assert frame_state.players[0].bbox == (8.0, 8.0, 12.0, 12.0)
     assert frame_state.players[0].semantic_status == "stable"
-    assert frame_state.ball is not None
-    assert frame_state.ball.status == BallStatus.FRESH
-    assert frame_state.ball.field_x == 10.0
-    assert frame_state.possession_track_id == 7
+    assert frame_state.players[0].field_x == 10.0
+    assert frame_state.players[0].field_y == 12.0
+    assert not hasattr(frame_state, "ball")
     assert frame_state.capture_source is not None
     assert frame_state.capture_source.stream_epoch == 3
     assert frame_state.capture_source.source_frame_id == 42

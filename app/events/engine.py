@@ -12,94 +12,37 @@ from typing import Any, Optional
 
 import numpy as np
 
-from app.state.models import BallStatus, FrameState, GameEvent, PlayerRole
+from app.state.models import FrameState, GameEvent, PlayerRole
 
 
 @dataclass(frozen=True)
 class EventEngineConfig:
-    possession_cooldown_s: float = 0.75
-    pass_max_gap_s: float = 1.5
-    shot_speed_mm_s: float = 3500.0
     event_cooldown_s: float = 1.0
     offside_enabled: bool = True
 
 
 class EventEngine:
-    """Generate deduplicated possession, pass, shot and offside candidates."""
+    """Generate deduplicated offside candidates from projected player positions.
+
+    Ball detection was removed from the pipeline, so ball-driven candidates
+    (possession, pass, shot) are no longer produced and offside geometry only
+    checks the attacker against the second-last defender.
+    """
 
     def __init__(self, config: EventEngineConfig = EventEngineConfig()) -> None:
         self.config = config
-        self._last_possession: Optional[int] = None
-        self._last_possession_timestamp: Optional[float] = None
         self._last_event_timestamp: dict[str, float] = {}
 
     def reset(self) -> None:
-        self._last_possession = None
-        self._last_possession_timestamp = None
         self._last_event_timestamp.clear()
 
     def update(self, frame: FrameState) -> list[GameEvent]:
         timestamp = float(frame.capture_timestamp_ms) / 1000.0
-        events: list[GameEvent] = []
-        possession = frame.possession_track_id
-
-        if possession is not None and possession != self._last_possession:
-            previous = self._last_possession
-            gap = (
-                timestamp - self._last_possession_timestamp
-                if self._last_possession_timestamp is not None
-                else None
-            )
-            if previous is not None:
-                events.extend(
-                    self._emit(
-                        event_type="possession_change",
-                        confidence=0.55,
-                        timestamp=timestamp,
-                        frame=frame,
-                        involved=[previous, possession],
-                        evidence={"previous_track_id": previous, "new_track_id": possession},
-                    )
-                )
-                if gap is not None and 0.0 <= gap <= self.config.pass_max_gap_s:
-                    events.extend(
-                        self._emit(
-                            event_type="pass_candidate",
-                            confidence=0.5,
-                            timestamp=timestamp,
-                            frame=frame,
-                            involved=[previous, possession],
-                            evidence={"possession_gap_s": round(gap, 3)},
-                        )
-                    )
-            self._last_possession = possession
-            self._last_possession_timestamp = timestamp
-
-        ball = frame.ball
-        if ball is not None and ball.status in {BallStatus.FRESH, BallStatus.PREDICTED}:
-            speed = None
-            if ball.velocity_x is not None and ball.velocity_y is not None:
-                speed = float(np.hypot(ball.velocity_x, ball.velocity_y))
-            if speed is not None and speed >= self.config.shot_speed_mm_s:
-                events.extend(
-                    self._emit(
-                        event_type="shot_candidate",
-                        confidence=float(np.clip(speed / (self.config.shot_speed_mm_s * 2), 0.5, 0.99)),
-                        timestamp=timestamp,
-                        frame=frame,
-                        involved=[possession] if possession is not None else [],
-                        evidence={"ball_speed_mm_s": round(speed, 1)},
-                    )
-                )
-            if self.config.offside_enabled:
-                events.extend(self._offside_candidates(frame, timestamp))
-
-        return events
+        if not self.config.offside_enabled:
+            return []
+        return self._offside_candidates(frame, timestamp)
 
     def _offside_candidates(self, frame: FrameState, timestamp: float) -> list[GameEvent]:
-        ball = frame.ball
-        if ball is None or ball.field_x is None:
-            return []
         players = [
             player
             for player in frame.players
@@ -121,8 +64,7 @@ class EventEngine:
             for attacker in attackers:
                 attacker_x = float(attacker.field_x)
                 beyond_line = attacker_x > line_x if attacking_team == 0 else attacker_x < line_x
-                beyond_ball = attacker_x > ball.field_x if attacking_team == 0 else attacker_x < ball.field_x
-                if not (beyond_line and beyond_ball):
+                if not beyond_line:
                     continue
                 results.extend(
                     self._emit(
@@ -131,11 +73,11 @@ class EventEngine:
                         timestamp=timestamp,
                         frame=frame,
                         involved=[attacker.track_id, second_last.track_id],
+                        field_xy=(attacker_x, attacker.field_y),
                         evidence={
                             "attacking_team": attacking_team,
                             "attacker_x": attacker_x,
                             "second_last_defender_x": line_x,
-                            "ball_x": float(ball.field_x),
                         },
                     )
                 )
@@ -149,6 +91,7 @@ class EventEngine:
         timestamp: float,
         frame: FrameState,
         involved: list[int],
+        field_xy: tuple[Optional[float], Optional[float]],
         evidence: dict[str, Any],
     ) -> list[GameEvent]:
         last = self._last_event_timestamp.get(event_type)
@@ -162,8 +105,8 @@ class EventEngine:
                 severity="candidate",
                 timestamp=timestamp,
                 frame_id=frame.frame_id,
-                field_x=frame.ball.field_x if frame.ball is not None else None,
-                field_y=frame.ball.field_y if frame.ball is not None else None,
+                field_x=field_xy[0],
+                field_y=field_xy[1],
                 involved_track_ids=involved,
                 evidence=evidence,
             )

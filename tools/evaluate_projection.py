@@ -58,7 +58,6 @@ def collect(name: str, device: str, diag_dir: Path) -> None:
     import torch
 
     from app.constants.paths import (
-        BALL_DETECTION_MODEL_PATH,
         CAMERA_CALIBRATION_PATH,
         PITCH_DETECTION_MODEL_PATH,
         PLAYER_DETECTION_MODEL_PATH,
@@ -150,8 +149,6 @@ def collect(name: str, device: str, diag_dir: Path) -> None:
             enable_undistortion=True,
             pitch_detection_interval=5,
             imgsz=640,
-            ball_model_path=BALL_DETECTION_MODEL_PATH,
-            enable_ball=True,
             enable_foul_detection=False,
             frame_sink=frame_sink,
         )
@@ -341,7 +338,6 @@ def analyze_video(name: str, diag_dir: Path) -> dict:
         "id_switches": metrics["track_id_switches"],
         "interruptions": metrics["track_id_interruptions"],
         "fragmentations": metrics["track_fragmentations"],
-        "ball_available": metrics["ball_available_ratio"],
         "team_unknown_rate": metrics["team_unknown_rate"],
     }
 

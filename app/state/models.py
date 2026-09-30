@@ -17,13 +17,6 @@ class HomographyStatus(str, Enum):
     UNAVAILABLE = "unavailable"
 
 
-class BallStatus(str, Enum):
-    FRESH = "fresh"
-    PREDICTED = "predicted"
-    STALE = "stale"
-    UNAVAILABLE = "unavailable"
-
-
 class PlayerRole(str, Enum):
     OUTFIELD = "outfield"
     # Backwards-compatible alias for existing event and client code.
@@ -62,18 +55,6 @@ class PlayerState(BaseModel):
     velocity_y: Optional[float] = None
 
 
-class BallState(BaseModel):
-    status: BallStatus = BallStatus.UNAVAILABLE
-    image_x: Optional[float] = None
-    image_y: Optional[float] = None
-    field_x: Optional[float] = None
-    field_y: Optional[float] = None
-    velocity_x: Optional[float] = None
-    velocity_y: Optional[float] = None
-    confidence: float = 0.0
-    age_frames: int = 0
-
-
 class CaptureSourceMetadata(BaseModel):
     kind: str = "unknown"
     session_id: Optional[str] = None
@@ -109,8 +90,6 @@ class FrameState(BaseModel):
     processing_fps: float = 0.0
     homography_status: HomographyStatus = HomographyStatus.UNAVAILABLE
     players: list[PlayerState] = Field(default_factory=list)
-    ball: Optional[BallState] = None
-    possession_track_id: Optional[int] = None
     events: list[GameEvent] = Field(default_factory=list)
     capture_source: Optional[CaptureSourceMetadata] = None
 
@@ -149,9 +128,6 @@ class MetricsSnapshot(BaseModel):
     team_inference_count: int = 0
     team_unknown_rate: float = 0.0
     team_label_switches: int = 0
-    ball_detection_count: int = 0
-    ball_predicted_frames: int = 0
-    ball_available_ratio: float = 0.0
     jpeg_frames_encoded: int = 0
     jpeg_encode_latency_ms: float = 0.0
     foul_inference_count: int = 0
@@ -183,16 +159,12 @@ class PipelineConfig(BaseModel):
     team_classifier_path: Optional[str] = None
     team_calibration_path: Optional[str] = None
     require_team_calibration: bool = True
-    ball_model_path: str = "assets/weights/football-ball-detection.pt"
-    enable_ball: bool = True
     role_detection_interval: int = Field(3, ge=1)
     team_classification_interval: int = Field(5, ge=1)
     track_activation_threshold: float = Field(0.25, ge=0.0, le=1.0)
     track_lost_buffer: int = Field(45, ge=1)
     track_matching_threshold: float = Field(0.8, ge=0.0, le=1.0)
     track_minimum_consecutive_frames: int = Field(2, ge=1)
-    ball_detection_interval: int = Field(2, ge=1)
-    ball_max_prediction_frames: int = Field(8, ge=0)
     camera_calibration_path: str = "assets/calibration/camera.npz"
     enable_undistortion: bool = True
     calibration_alpha: float = Field(0.0, ge=0.0, le=1.0)

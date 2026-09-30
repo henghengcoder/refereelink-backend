@@ -1,7 +1,6 @@
 """Shared detection, tracking and pitch-projection primitives."""
 
 from app.vision.core import TrackLifecycleState, VisionCore, VisionFrame
-from app.vision.ball import BallProcessor
 from app.vision.backends import CallableBackend, DetectorBackend, UltralyticsBackend
 from app.vision.semantics import TrackSemanticManager
 from app.vision.display import DisplayTrack, TrackDisplaySmoother
@@ -11,7 +10,6 @@ __all__ = [
     "VisionCore",
     "VisionFrame",
     "TrackLifecycleState",
-    "BallProcessor",
     "TrackSemanticManager",
     "DisplayTrack",
     "TrackDisplaySmoother",

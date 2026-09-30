@@ -2,7 +2,7 @@
 
 ## 当前链路
 
-`VisionCore.process(frame, frame_index)` 负责共享的相机去畸变、YOLOv11 person、ByteTrack、低频球场关键点、RANSAC 单应性和球员底部中心场地投影。`ball.py` 独立处理足球检测与有限帧恒速度预测；`semantics.py`、`role.py` 和 classification 模块在轨迹层补充角色/球队标签；`backends.py` 管理 PyTorch/ONNX/TensorRT 适配。
+`VisionCore.process(frame, frame_index)` 负责共享的相机去畸变、YOLOv11 person、ByteTrack、低频球场关键点、RANSAC 单应性和球员底部中心场地投影。`semantics.py`、`role.py` 和 classification 模块在轨迹层补充角色/球队标签；`backends.py` 管理 PyTorch/ONNX/TensorRT 适配。
 
 ## 算法不变量
 
@@ -15,5 +15,5 @@
 优先使用不依赖权重的合成帧、伪检测和状态测试；真实模型 benchmark 另行记录模型/设备/输入视频/帧数等条件。
 
 ```bash
-uv run pytest tests/test_vision_core.py tests/test_ball_tracking.py tests/test_ball_state.py tests/test_semantics.py tests/test_backends.py -q
+uv run pytest tests/test_vision_core.py tests/test_semantics.py tests/test_backends.py -q
 ```

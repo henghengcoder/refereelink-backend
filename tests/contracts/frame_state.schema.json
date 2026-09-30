@@ -11,10 +11,14 @@
     "processing_fps",
     "homography_status",
     "players",
-    "ball",
-    "possession_track_id",
     "events"
   ],
+  "not": {
+    "anyOf": [
+      { "required": ["ball"] },
+      { "required": ["possession_track_id"] }
+    ]
+  },
   "properties": {
     "type": { "const": "frame_state" },
     "frame_id": { "type": "integer" },
@@ -29,13 +33,6 @@
       "type": "array",
       "items": { "$ref": "#/$defs/player" }
     },
-    "ball": {
-      "anyOf": [
-        { "$ref": "#/$defs/ball" },
-        { "type": "null" }
-      ]
-    },
-    "possession_track_id": { "type": ["integer", "null"] },
     "events": {
       "type": "array",
       "items": { "$ref": "#/$defs/event" }
@@ -60,18 +57,6 @@
         "confidence": { "type": "number" },
         "field_x": { "type": ["number", "null"] },
         "field_y": { "type": ["number", "null"] }
-      }
-    },
-    "ball": {
-      "type": "object",
-      "required": ["status", "confidence", "age_frames"],
-      "properties": {
-        "status": {
-          "type": "string",
-          "enum": ["fresh", "predicted", "stale", "unavailable"]
-        },
-        "confidence": { "type": "number" },
-        "age_frames": { "type": "integer" }
       }
     },
     "event": {

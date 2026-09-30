@@ -20,7 +20,6 @@ import numpy as np
 from app.annotators.pitch import draw_pitch
 from app.config.pitch import SoccerPitchConfiguration
 from app.constants.paths import (
-    BALL_DETECTION_MODEL_PATH,
     CAMERA_CALIBRATION_PATH,
     PITCH_DETECTION_MODEL_PATH,
     PLAYER_DETECTION_MODEL_PATH,
@@ -81,14 +80,11 @@ def _render_panel(frame: np.ndarray, state: FrameState, panel_width: int) -> np.
         player.field_x is not None and player.field_y is not None
         for player in state.players
     )
-    ball_status = state.ball.status.value if state.ball is not None else "unavailable"
     _draw_text(
         panel,
         f"players: {len(state.players)}  projected: {valid_players}",
         (18, 108),
     )
-    _draw_text(panel, f"ball: {ball_status}", (18, 132), (0, 215, 255) if ball_status != "unavailable" else (160, 160, 160))
-
     padding = 18
     pitch_top = 160
     pitch_bottom = height - 28
@@ -128,11 +124,6 @@ def _render_panel(frame: np.ndarray, state: FrameState, panel_width: int) -> np.
         label_x = min(max(point[0] + 10, 4), panel_width - 170)
         label_y = min(max(point[1] - 8, 155), height - 8)
         _draw_text(panel, label, (label_x, label_y), color, 0.38)
-
-    if state.ball is not None and state.ball.field_x is not None and state.ball.field_y is not None:
-        point = project_to_panel(state.ball.field_x, state.ball.field_y)
-        cv2.circle(panel, point, 8, (0, 215, 255), 2, cv2.LINE_AA)
-        _draw_text(panel, "BALL", (point[0] + 10, point[1] + 5), (0, 215, 255), 0.4, 2)
 
     return np.hstack((frame, panel))
 
@@ -209,7 +200,6 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--device", default="cuda")
     parser.add_argument("--player-model-path", default=PLAYER_DETECTION_MODEL_PATH)
     parser.add_argument("--pitch-model-path", default=PITCH_DETECTION_MODEL_PATH)
-    parser.add_argument("--ball-model-path", default=BALL_DETECTION_MODEL_PATH)
     parser.add_argument("--camera-calibration-path", default=CAMERA_CALIBRATION_PATH)
     parser.add_argument("--pitch-detection-interval", type=int, default=5)
     parser.add_argument("--imgsz", type=int, default=640)
@@ -255,8 +245,6 @@ def main() -> int:
         enable_undistortion=not args.disable_undistortion,
         pitch_detection_interval=args.pitch_detection_interval,
         imgsz=args.imgsz,
-        ball_model_path=args.ball_model_path,
-        enable_ball=True,
         enable_foul_detection=False,
         frame_sink=frame_sink,
     )

@@ -6,7 +6,7 @@
 - `pipeline/`：本地文件/RTSP source、有界帧缓冲、推理线程和可选录制。
 - `vision/`：共享球员/球场视觉、后端适配、球处理、轨迹语义和显示数据。
 - `geometry/`：固定广角相机标定、去畸变、视角变换和球场投影。
-- `events/`：基于轨迹的 possession/pass/shot/offside 等可解释事件候选。
+- `events/`：基于球员场地坐标的越位等可解释事件候选（球识别已移除）。
 - `multiview/`：多视角犯规推理、定位、规则评估和复核持久化；详见局部说明。
 - `server/`：FastAPI 路由、WebSocket 生命周期、MJPEG 和 pipeline 控制。
 - `services/`：WebSocket publisher 和共享 JPEG 编码缓存。

@@ -109,7 +109,7 @@ ApplicationWindow {
                     }
 
                     Label {
-                        text: "players, ball context, and pitch keypoints"
+                        text: "players and pitch keypoints"
                         color: "#90a0b0"
                         font.pixelSize: 12
                     }

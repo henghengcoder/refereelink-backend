@@ -59,7 +59,6 @@ function drawPitch(ctx: CanvasRenderingContext2D, w: number, h: number) {
 const Pitch2D: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const players = useDashboardStore((s) => s.frameState?.players ?? NO_PLAYERS);
-  const ball = useDashboardStore((s) => s.frameState?.ball ?? null);
   const homographyStatus = useDashboardStore(
     (s) => s.frameState?.homography_status ?? 'unavailable'
   );
@@ -93,17 +92,7 @@ const Pitch2D: React.FC = () => {
       ctx.textAlign = 'center';
     ctx.fillText(`${p.entity_id ?? p.track_id}`, sx, sy - 11);
     }
-
-    if (ball?.field_x != null && ball.field_y != null) {
-      const [bx, by] = worldToCanvas(ball.field_x, ball.field_y, w, h);
-      ctx.beginPath();
-      ctx.arc(bx, by, 5, 0, Math.PI * 2);
-      ctx.fillStyle = ball.status === 'fresh' ? '#fff' : '#aaa';
-      ctx.fill();
-      ctx.strokeStyle = '#111';
-      ctx.stroke();
-    }
-  }, [players, ball]);
+  }, [players]);
 
   return (
     <div className="panel pitch-panel">

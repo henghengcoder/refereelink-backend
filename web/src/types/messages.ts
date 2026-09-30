@@ -1,5 +1,4 @@
 export type HomographyStatus = 'fresh' | 'reused' | 'stale' | 'unavailable';
-export type BallStatus = 'fresh' | 'predicted' | 'stale' | 'unavailable';
 export type PlayerRole = 'outfield' | 'player' | 'goalkeeper' | 'referee' | 'staff' | 'unknown';
 export type TeamLabel = 'home' | 'away' | 'none' | 'unknown';
 export type SourceStatus = 'connected' | 'disconnected' | 'reconnecting' | 'error';
@@ -23,18 +22,6 @@ export interface PlayerState {
   semantic_status: string;
   velocity_x: number | null;
   velocity_y: number | null;
-}
-
-export interface BallState {
-  status: BallStatus;
-  image_x: number | null;
-  image_y: number | null;
-  field_x: number | null;
-  field_y: number | null;
-  velocity_x: number | null;
-  velocity_y: number | null;
-  confidence: number;
-  age_frames: number;
 }
 
 export interface CaptureSourceMetadata {
@@ -72,8 +59,6 @@ export interface FrameState {
   processing_fps: number;
   homography_status: HomographyStatus;
   players: PlayerState[];
-  ball: BallState | null;
-  possession_track_id: number | null;
   events: GameEvent[];
   capture_source?: CaptureSourceMetadata | null;
 }
@@ -111,9 +96,6 @@ export interface MetricsSnapshot {
   team_inference_count: number;
   team_unknown_rate: number;
   team_label_switches: number;
-  ball_detection_count: number;
-  ball_predicted_frames: number;
-  ball_available_ratio: number;
   jpeg_frames_encoded: number;
   jpeg_encode_latency_ms: number;
   foul_inference_count: number;
@@ -216,16 +198,12 @@ export interface PipelineConfig {
   team_classifier_path: string | null;
   team_calibration_path: string | null;
   require_team_calibration: boolean;
-  ball_model_path: string;
-  enable_ball: boolean;
   role_detection_interval: number;
   team_classification_interval: number;
   track_activation_threshold: number;
   track_lost_buffer: number;
   track_matching_threshold: number;
   track_minimum_consecutive_frames: number;
-  ball_detection_interval: number;
-  ball_max_prediction_frames: number;
   camera_calibration_path: string;
   enable_undistortion: boolean;
   calibration_alpha: number;

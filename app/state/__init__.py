@@ -1,6 +1,4 @@
 from app.state.models import (
-    BallState,
-    BallStatus,
     FrameState,
     GameEvent,
     HomographyStatus,
@@ -17,8 +15,6 @@ from app.state.events import EventBus
 
 __all__ = [
     "FrameState",
-    "BallState",
-    "BallStatus",
     "GameEvent",
     "HomographyStatus",
     "MetricsSnapshot",

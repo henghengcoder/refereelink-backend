@@ -3,7 +3,7 @@
 The backends in this module deliberately return the model's native prediction
 value.  Converting that value to ``supervision.Detections`` remains the
 responsibility of the caller, which keeps this layer independent from the
-player, pitch, and ball-specific post-processing code.
+player- and pitch-specific post-processing code.
 """
 
 from __future__ import annotations

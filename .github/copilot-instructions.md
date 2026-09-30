@@ -4,7 +4,7 @@ RefereeLink is a real-time football computer-vision and assisted-officiating bac
 
 ## Protect these contracts
 
-- Treat `app/state/models.py` as the source of truth for `FrameState`, `MetricsSnapshot`, `GameEvent`, `PlayerState`, `BallState`, and pipeline configuration. When a field, enum, default, nullability, or serialized name changes, update the REST/WebSocket tests and the corresponding files under `web/src/types/`.
+- Treat `app/state/models.py` as the source of truth for `FrameState`, `MetricsSnapshot`, `GameEvent`, `PlayerState`, and pipeline configuration. When a field, enum, default, nullability, or serialized name changes, update the REST/WebSocket tests and the corresponding files under `web/src/types/`.
 - Keep `/ws/state` structured JSON only. The MJPEG video stream is separate at `/video/stream`; do not put base64 video or raw frames in state messages.
 - Preserve explicit `UNKNOWN`, `NONE`, `unavailable`, `stale`, and error/degradation states. Never fabricate a valid detection, team, geometry, event, or metric when the model or input is unavailable.
 - Keep team identity and player role as separate semantic dimensions. Do not infer a team merely because a role or track exists.

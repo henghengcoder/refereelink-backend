@@ -49,15 +49,13 @@ at a lower frequency, with bounded temporal voting and UNKNOWN fallback. Pitch
 keypoints run on frame 1 and then every configured interval (default 5); skipped
 frames reuse the last homography for at most 0.5 seconds.
 
-`app/vision/ball.py` keeps the ball path separate from player ByteTrack. It
-runs the ball detector at a configured interval, uses a bounded constant-
-velocity predictor between detections, projects valid estimates through the
-current homography, and exposes `fresh`, `predicted`, or `unavailable` status.
+Ball detection and ball projection were removed; `FrameState` carries no
+`ball` or `possession_track_id` fields.
 
 ### `app/events/engine.py`
 
 Consumes `FrameState` entities and emits deduplicated, explainable event
-candidates for possession changes, passes, shots and offside geometry. The
+candidates for offside geometry (attacker beyond the second-last defender). The
 engine is stateful but lightweight; it records involved track IDs and evidence
 fields, and deliberately does not present geometric candidates as final
 referee decisions. `FoulEventAdapter` normalizes an optional MVFoul prediction
@@ -111,7 +109,7 @@ Every frame carries:
   `end_to_end_latency_ms` (capture → processed) for the metrics
   snapshot.
 
-Phase-one and phase-two metrics additionally include player/pitch/semantic/ball inference latency,
+Phase-one and phase-two metrics additionally include player/pitch/semantic inference latency,
 pitch detection count, homography reuse ratio, and homography available
 ratio, track-ID interruption count, memory, and GPU memory. `tools/benchmark_phase1.py`
 evaluates YOLOv11n/s, `imgsz=640/960`, pitch intervals `1/5/10`, and an
@@ -140,7 +138,7 @@ require any pipeline change.
 
 The current full suite contains 104 tests:
 
-- 17 pre-existing tests for pitch config, projection, ball tracking,
+- 17 pre-existing tests for pitch config, projection,
   radar dashboard, runtime helpers, and the view transformer.
 - 8 Pydantic model tests (serialization roundtrips, null field
   coordinates, status enums).
@@ -156,7 +154,7 @@ The current full suite contains 104 tests:
   update_config command).
 - 3 smoke-integration tests (synthetic video, state pipeline,
   buffer pipeline).
-- Phase-two semantic, ball-state and entity-integration tests.
+- Phase-two semantic and entity-integration tests.
 - Phase-three event candidate and foul-adapter tests.
 - Phase-four backend adapter and shared JPEG-cache tests.
 

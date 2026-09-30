@@ -8,8 +8,6 @@ from jsonschema import validate
 
 from app.server.main import app
 from app.state.models import (
-    BallState,
-    BallStatus,
     CaptureSourceMetadata,
     FrameState,
     GameEvent,
@@ -37,7 +35,6 @@ def _sample_frame() -> FrameState:
                 confidence=0.0,
             )
         ],
-        ball=BallState(status=BallStatus.UNAVAILABLE),
         events=[
             GameEvent(
                 event_type="foul_candidate",
@@ -68,7 +65,8 @@ def test_frame_state_json_contract_preserves_unknown_and_unavailable() -> None:
     _validate_frame_payload(payload)
     assert payload["players"][0]["team"] == "unknown"
     assert payload["players"][0]["team_id"] == -1
-    assert payload["ball"]["status"] == "unavailable"
+    assert "ball" not in payload
+    assert "possession_track_id" not in payload
 
     roundtrip = FrameState.model_validate_json(json.dumps(payload))
     assert roundtrip.frame_id == 42

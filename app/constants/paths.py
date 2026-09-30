@@ -14,7 +14,6 @@ YOLO11N_PLAYER_MODEL_PATH = str(WEIGHTS_DIR / 'yolo11n.pt')
 PLAYER_DETECTION_MODEL_PATH = YOLO11S_PLAYER_MODEL_PATH
 LEGACY_PLAYER_DETECTION_MODEL_PATH = str(WEIGHTS_DIR / 'football-player-detection.pt')
 PITCH_DETECTION_MODEL_PATH = str(WEIGHTS_DIR / 'football-pitch-detection.pt')
-BALL_DETECTION_MODEL_PATH = str(WEIGHTS_DIR / 'football-ball-detection.pt')
 ROLE_DETECTION_MODEL_PATH = str(WEIGHTS_DIR / 'player-role-yolo11n.pt')
 TEAM_CLASSIFIER_PATH = str(WEIGHTS_DIR / 'team-classifier.joblib')
 FOUL_MODEL_PATH = str(WEIGHTS_DIR / 'mvfoul.pth.tar')

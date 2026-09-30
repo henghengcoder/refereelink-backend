@@ -6,9 +6,9 @@ YOLOv11 person detection, ByteTrack tracking, low-frequency pitch keypoint
 detection, RANSAC homography reuse, and bottom-center field projection. It
 pushes structured state to a React web dashboard over WebSocket. Live video
 is delivered as a low-latency MJPEG stream from a dedicated FastAPI endpoint.
-The phase-two entity layer adds optional trajectory-level role/team semantics,
-bounded football prediction, field-space ball coordinates, and a possession
-candidate without changing the phase-one UNKNOWN fallback.
+The phase-two entity layer adds optional trajectory-level role/team semantics
+without changing the phase-one UNKNOWN fallback. Ball detection and ball
+projection have been removed; the pipeline tracks and projects people only.
 
 > The original PySide6/QML dashboard is preserved under `--mode
 > RADAR_DASHBOARD_LEGACY`. The web dashboard is the recommended and only
@@ -41,7 +41,7 @@ candidate without changing the phase-one UNKNOWN fallback.
 │  │ RANSAC homography / history reuse                      │ │
 │  │ bottom-center → field coordinates                      │ │
 │  └─────────────────────────────────────────────────────────┘ │
-│  Ball/Foul modes reuse CameraUndistorter and keep own models │
+│  Foul mode reuses CameraUndistorter and keeps its own model  │
 │                          ▼                                   │
 │                   FrameState (Pydantic)                      │
 └──────────────────────┬───────────────────────────────────────┘
@@ -192,7 +192,6 @@ cd web && npm run build
 | `RADAR`                   | Offline radar processing, writes annotated video |
 | `PLAYER_DETECTION`        | YOLO player detection only |
 | `PITCH_DETECTION`         | YOLO pitch keypoint detection only |
-| `BALL_DETECTION`          | YOLO ball detection with slicer |
 | `PLAYER_TRACKING`         | YOLO + ByteTrack |
 | `TEAM_CLASSIFICATION`     | Shared YOLOv11 person + ByteTrack view; role/team remain UNKNOWN/-1 in phase 1 |
 | `FOUL_DETECTION`          | MVFoul rolling window with HUD overlay |
@@ -203,9 +202,9 @@ cd web && npm run build
 uv run pytest tests/ -v
 ```
 
-Tests cover camera calibration, VisionCore scheduling/projection, trajectory semantics, ball prediction and pipeline entity integration, Pydantic models, the bounded buffer (realtime drop
+Tests cover camera calibration, VisionCore scheduling/projection, trajectory semantics and pipeline entity integration, Pydantic models, the bounded buffer (realtime drop
 + offline block), the video source abstraction (factory routing,
 reconnect state), the StateStore and EventBus (thread safety,
 bounded buffers, exception isolation), the FastAPI REST endpoints,
-the WebSocket lifecycle and commands, the legacy pitch/ball/team
+the WebSocket lifecycle and commands, the legacy pitch/team
 core, and a synthetic-video smoke test for the full pipeline.
