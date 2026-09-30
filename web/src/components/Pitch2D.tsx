@@ -1,9 +1,12 @@
 import React, { useRef, useEffect } from 'react';
 import { useDashboardStore } from '../store/dashboardStore';
+import type { PlayerState } from '../types/messages';
 
 const PITCH_W = 12000;
 const PITCH_H = 7000;
 const PADDING = 40;
+// Stable fallback: zustand v5 re-renders forever if a selector returns a new [] each call.
+const NO_PLAYERS: PlayerState[] = [];
 
 const TEAM_COLORS: Record<string, string> = {
   home: '#FF1493',
@@ -55,7 +58,7 @@ function drawPitch(ctx: CanvasRenderingContext2D, w: number, h: number) {
 
 const Pitch2D: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const players = useDashboardStore((s) => s.frameState?.players ?? []);
+  const players = useDashboardStore((s) => s.frameState?.players ?? NO_PLAYERS);
   const ball = useDashboardStore((s) => s.frameState?.ball ?? null);
   const homographyStatus = useDashboardStore(
     (s) => s.frameState?.homography_status ?? 'unavailable'
