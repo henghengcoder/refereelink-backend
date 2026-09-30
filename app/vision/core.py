@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum
 from typing import Optional
 
@@ -20,12 +20,35 @@ from app.constants.paths import (
     PLAYER_DETECTION_MODEL_PATH,
 )
 from app.geometry.camera import (
+    CameraMotionEstimate,
     CameraMotionEstimator,
     CameraUndistorter,
     build_undistorter,
 )
-from app.geometry.pitch_projection import PitchProjectionEngine, PitchProjectionResult
+from app.geometry.pitch_projection import (
+    PitchProjectionEngine,
+    PitchProjectionResult,
+    blend_homographies,
+    homography_deviation,
+    translate_homography,
+)
+from app.geometry.position_filter import PlayerPositionFilter
 from app.vision.entities import TrackEntityManager
+
+# Weight given to a newly fitted homography when the camera has not moved.
+# A fit from the bare minimum of four keypoints has no redundancy, so trust it
+# less; the blend removes the whole-pitch "jump" at every scheduled refresh.
+MINIMAL_FIT_BLEND_ALPHA = 0.3
+REDUNDANT_FIT_BLEND_ALPHA = 0.6
+# A new fit that moves the players' feet by more than this (median) compared
+# with the matrix on screen is treated as a bad keypoint fit and ignored, up to
+# a few consecutive times so a genuinely changed view is still accepted.
+HOMOGRAPHY_REJECT_DEVIATION_CM = 200.0
+MAX_CONSECUTIVE_HOMOGRAPHY_REJECTS = 6
+# Motion-triggered refreshes are compared with a translation-compensated
+# matrix, which drifts during long pans, so they get a looser, shorter gate.
+MOTION_REFRESH_REJECT_DEVIATION_CM = 400.0
+MAX_CONSECUTIVE_MOTION_REFRESH_REJECTS = 3
 
 
 def _empty_detections() -> sv.Detections:
@@ -102,6 +125,8 @@ class VisionCore:
         max_prediction_gap_frames: int = 6,
         reactivation_window_frames: int = 12,
         entity_manager: Optional[TrackEntityManager] = None,
+        stabilize_projection: bool = True,
+        position_filter: Optional[PlayerPositionFilter] = None,
     ) -> None:
         self.device = device
         self.fps = max(float(fps), 1.0)
@@ -177,6 +202,14 @@ class VisionCore:
         self._camera_motion_estimator = camera_motion_estimator or CameraMotionEstimator(
             threshold_px=camera_motion_threshold_px
         )
+        # Temporal stabilisation of the pitch projection: homography blending,
+        # sub-threshold camera-motion compensation and per-player filtering.
+        self.stabilize_projection = bool(stabilize_projection)
+        self._position_filter = position_filter or PlayerPositionFilter(fps=self.fps)
+        self._base_homography: Optional[np.ndarray] = None
+        self._last_output_homography: Optional[np.ndarray] = None
+        self._consecutive_homography_rejects = 0
+        self.homography_rejections = 0
 
     @property
     def projection_engine(self) -> PitchProjectionEngine:
@@ -295,6 +328,91 @@ class VisionCore:
             return projection
         self.pitch_reuse_count += 1
         return self._projection_engine.reuse(frame=frame)
+
+    def _stabilize_homography(
+        self,
+        projection: PitchProjectionResult,
+        *,
+        motion: Optional[CameraMotionEstimate],
+        force_refresh: bool,
+        frame_shape: tuple[int, ...],
+        anchor_points: np.ndarray,
+    ) -> PitchProjectionResult:
+        """Smooth homography refreshes and compensate small camera drift.
+
+        * A new fit that would move the players' feet (``anchor_points``) by
+          more than the rejection threshold is treated as a bad keypoint fit
+          and ignored, at most a few times in a row.
+        * A scheduled (non motion-triggered) refresh is blended with the matrix
+          shown on the previous frame instead of replacing it outright.
+        * Frames that reuse the last fit apply the measured image translation
+          since that fit, so sub-threshold pans do not accumulate error until
+          the next refresh.
+        """
+
+        if projection.homography is None:
+            self._base_homography = None
+            self._last_output_homography = None
+            self._consecutive_homography_rejects = 0
+            return projection
+
+        if projection.homography_status == "fresh":
+            homography = np.asarray(projection.homography, dtype=np.float64)
+            previous = self._last_output_homography
+            deviation = (
+                homography_deviation(previous, homography, anchor_points)
+                if previous is not None
+                else None
+            )
+            if force_refresh:
+                reject_threshold = MOTION_REFRESH_REJECT_DEVIATION_CM
+                max_rejects = MAX_CONSECUTIVE_MOTION_REFRESH_REJECTS
+            else:
+                reject_threshold = HOMOGRAPHY_REJECT_DEVIATION_CM
+                max_rejects = MAX_CONSECUTIVE_HOMOGRAPHY_REJECTS
+            if (
+                deviation is not None
+                and deviation > reject_threshold
+                and self._consecutive_homography_rejects < max_rejects
+            ):
+                # Keep the on-screen matrix.  The motion reference was just
+                # re-marked on this frame, so it becomes the new base.
+                self._consecutive_homography_rejects += 1
+                self.homography_rejections += 1
+                self._base_homography = previous
+                self._last_output_homography = previous
+                return replace(projection, homography=previous)
+            # After repeated rejections the view has genuinely changed: adopt
+            # the new fit outright instead of blending towards it.
+            overridden = self._consecutive_homography_rejects >= max_rejects
+            self._consecutive_homography_rejects = 0
+            if not force_refresh and not overridden and previous is not None:
+                alpha = (
+                    REDUNDANT_FIT_BLEND_ALPHA
+                    if len(projection.tracking_observations) > 4
+                    else MINIMAL_FIT_BLEND_ALPHA
+                )
+                config = self._projection_engine.config
+                homography = blend_homographies(
+                    previous,
+                    homography,
+                    alpha,
+                    frame_shape,
+                    pitch_length=float(config.length),
+                    pitch_width=float(config.width),
+                )
+            self._base_homography = homography
+        elif self._base_homography is not None:
+            homography = self._base_homography
+            if motion is not None and motion.response >= motion.minimum_response:
+                homography = translate_homography(
+                    homography, (motion.shift_x_px, motion.shift_y_px)
+                )
+        else:
+            homography = np.asarray(projection.homography, dtype=np.float64)
+
+        self._last_output_homography = homography
+        return replace(projection, homography=homography)
 
     def _field_coordinates(
         self,
@@ -485,7 +603,26 @@ class VisionCore:
         )
         if projection.homography_status == "fresh":
             self._camera_motion_estimator.mark_reference(undistorted_frame)
+        if self.stabilize_projection:
+            projection = self._stabilize_homography(
+                projection,
+                motion=motion,
+                force_refresh=force_pitch_refresh,
+                frame_shape=undistorted_frame.shape,
+                anchor_points=tracked_detections.get_anchors_coordinates(
+                    anchor=sv.Position.BOTTOM_CENTER
+                )
+                if len(tracked_detections)
+                else np.empty((0, 2)),
+            )
         field_xy = self._field_coordinates(tracked_detections, projection)
+        if self.stabilize_projection and tracked_detections.tracker_id is not None:
+            keys = [
+                entity_update.entity_ids.get(int(track_id), int(track_id))
+                for track_id in tracked_detections.tracker_id
+            ]
+            box_heights = tracked_detections.xyxy[:, 3] - tracked_detections.xyxy[:, 1]
+            field_xy = self._position_filter.update(keys, field_xy, frame_index, box_heights)
         self.frames_processed += 1
         if projection.available:
             self.homography_available_count += 1
