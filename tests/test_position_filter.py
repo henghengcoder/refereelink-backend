@@ -78,3 +78,15 @@ def test_stale_tracks_expire() -> None:
     filter_.update([2], np.array([[2000.0, 2000.0]]), 10, [60.0])
 
     assert filter_.active_keys == {2}
+
+
+def test_reappearing_track_starts_fresh_after_frame_gap() -> None:
+    filter_ = PlayerPositionFilter(max_missing_frames=12)
+    for frame_index in range(1, 21):
+        filter_.update([1], np.array([[1000.0, 1000.0]]), frame_index, [100.0])
+
+    # Live capture can skip frames without an intervening empty update.
+    out = filter_.update([1], np.array([[2000.0, 1000.0]]), 50, [100.0])
+
+    assert np.allclose(out, [[2000.0, 1000.0]])
+    assert filter_.outliers_rejected == 0

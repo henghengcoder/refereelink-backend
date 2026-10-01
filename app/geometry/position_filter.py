@@ -87,6 +87,7 @@ class PlayerPositionFilter:
 
         measurements = np.asarray(field_xy, dtype=np.float64).reshape(-1, 2)
         output = np.full(measurements.shape, np.nan, dtype=np.float64)
+        self._expire(frame_index)
         for index, key in enumerate(keys):
             measurement = measurements[index]
             if not np.isfinite(measurement).all():
@@ -95,7 +96,6 @@ class PlayerPositionFilter:
             if box_heights is not None:
                 height = float(box_heights[index])
             output[index] = self._update_one(int(key), measurement, frame_index, height)
-        self._expire(frame_index)
         return output.astype(np.asarray(field_xy).dtype, copy=False)
 
     def _measurement_variance(self, box_height: Optional[float]) -> float:

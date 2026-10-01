@@ -358,6 +358,16 @@ class VisionCore:
         if projection.homography_status == "fresh":
             homography = np.asarray(projection.homography, dtype=np.float64)
             previous = self._last_output_homography
+            if (
+                self._base_homography is not None
+                and motion is not None
+                and motion.response >= motion.minimum_response
+            ):
+                # Motion is measured from the last refresh, not the previous
+                # output frame. Compare both fits in the current image space.
+                previous = translate_homography(
+                    self._base_homography, (motion.shift_x_px, motion.shift_y_px)
+                )
             deviation = (
                 homography_deviation(previous, homography, anchor_points)
                 if previous is not None

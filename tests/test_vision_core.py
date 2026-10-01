@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import cv2
 import numpy as np
+import pytest
 import supervision as sv
 
 from app.config.pitch import SoccerPitchConfiguration
-from app.geometry.camera import CameraMotionEstimator
+from app.geometry.camera import CameraMotionEstimate, CameraMotionEstimator
 from app.geometry.pitch_projection import PitchProjectionResult
 from app.vision.core import VisionCore
 
@@ -321,3 +322,48 @@ def test_motion_refresh_is_not_blended() -> None:
 
     assert moved.projection.homography_status == "fresh"
     assert np.allclose(moved.projection.homography, _offset(100.0))
+
+
+@pytest.mark.parametrize("new_offset,rejections", [(-500.0, 0), (900.0, 1)])
+def test_motion_refresh_keeps_stationary_player_at_same_field_position(
+    new_offset: float, rejections: int
+) -> None:
+    class MotionEstimator:
+        def __init__(self):
+            self.frame = 0
+
+        def measure(self, frame):
+            self.frame += 1
+            if self.frame == 1:
+                return None
+            return CameraMotionEstimate(
+                shift_x_px=50.0 if self.frame == 2 else 0.0,
+                shift_y_px=0.0,
+                response=0.9,
+                threshold_px=6.0,
+                minimum_response=0.15,
+            )
+
+        def mark_reference(self, frame):
+            pass
+
+    motion = MotionEstimator()
+    core, _ = _stabilised_core([_offset(0.0), _offset(new_offset)], camera_motion_estimator=motion)
+
+    def detections(frame):
+        x = 50.0 if motion.frame == 0 else 100.0
+        return sv.Detections(
+            xyxy=np.array([[x - 10, 40, x + 10, 80]], dtype=np.float32),
+            confidence=np.array([0.9]),
+            class_id=np.array([0]),
+            tracker_id=np.array([3]),
+        )
+
+    core._predict_player = detections
+    results = [core.process(np.zeros((100, 150, 3), dtype=np.uint8), i) for i in range(1, 5)]
+
+    # A correct large refresh is accepted. A bad fit falls back to a
+    # motion-compensated matrix, which must also survive reference reset/reuse.
+    assert core.homography_rejections == rejections
+    assert all(np.allclose(result.field_xy, [[1500.0, 1800.0]]) for result in results)
+    assert np.allclose(results[-1].projection.homography, _offset(-500.0))
